@@ -180,7 +180,8 @@ def build_miniapp_or_callback_button(
     icon_custom_emoji_id: str | None = None,
     style_key: str | None = None,
 ) -> InlineKeyboardButton:
-    """Create a button that opens the cabinet miniapp or falls back to a callback.
+    """Create a styled button that opens the cabinet miniapp, or a styled callback
+    button when no cabinet is configured.
 
     In cabinet menu mode, if ``MINIAPP_CUSTOM_URL`` is configured the button
     opens the relevant section of the cabinet.  The target section is determined
@@ -193,6 +194,12 @@ def build_miniapp_or_callback_button(
       resolved from ``CABINET_BUTTON_STYLE`` config or per-section defaults.
     - ``icon_custom_emoji_id`` shows a custom emoji before the button text
       (requires bot owner to have Telegram Premium).
+
+    Styling is resolved the same way regardless of whether a cabinet URL is
+    available. Without ``MINIAPP_CUSTOM_URL`` (cabinet disabled/not configured)
+    the button falls back to a regular Telegram callback but KEEPS its color —
+    cabinet mode's colored look must not force users through the external
+    cabinet web app to get it.
 
     When ``callback_data`` is not found in the mapping and no explicit
     ``cabinet_path`` is given, the button falls back to a regular Telegram
@@ -212,36 +219,47 @@ def build_miniapp_or_callback_button(
         path = cabinet_path or CALLBACK_TO_CABINET_PATH.get(callback_data)
         if path:
             url = build_cabinet_url(path)
+
+            # Resolve per-section config from cache
+            lookup_key = style_key or callback_data
+            section = CALLBACK_TO_SECTION.get(lookup_key)
+            section_cfg = get_cached_button_styles().get(section or '', {}) if section else {}
+
+            # Style chain: explicit param > per-section DB > global config > hardcoded default
+            # 'default' in per-section config means "no color" — do not fall through.
+            if style:
+                resolved_style = _resolve_style(style)
+            elif section_cfg.get('style'):
+                resolved_style = _resolve_style(section_cfg['style'])
+            else:
+                resolved_style = _resolve_style((settings.CABINET_BUTTON_STYLE or '').strip()) or _resolve_style(
+                    CALLBACK_TO_CABINET_STYLE.get(lookup_key)
+                )
+
+            # Emoji chain: explicit param > per-section DB
+            resolved_emoji = icon_custom_emoji_id or section_cfg.get('icon_custom_emoji_id') or None
+
+            # Если есть кастом emoji — стрипаем ведущий юникод-эмодзи из текста,
+            # иначе у юзера будут две иконки слева (custom + default).
+            final_text = strip_leading_emoji(text) if resolved_emoji else text
+
             if url:
-                # Resolve per-section config from cache
-                lookup_key = style_key or callback_data
-                section = CALLBACK_TO_SECTION.get(lookup_key)
-                section_cfg = get_cached_button_styles().get(section or '', {}) if section else {}
-
-                # Style chain: explicit param > per-section DB > global config > hardcoded default
-                # 'default' in per-section config means "no color" — do not fall through.
-                if style:
-                    resolved_style = _resolve_style(style)
-                elif section_cfg.get('style'):
-                    resolved_style = _resolve_style(section_cfg['style'])
-                else:
-                    resolved_style = _resolve_style((settings.CABINET_BUTTON_STYLE or '').strip()) or _resolve_style(
-                        CALLBACK_TO_CABINET_STYLE.get(lookup_key)
-                    )
-
-                # Emoji chain: explicit param > per-section DB
-                resolved_emoji = icon_custom_emoji_id or section_cfg.get('icon_custom_emoji_id') or None
-
-                # Если есть кастом emoji — стрипаем ведущий юникод-эмодзи из текста,
-                # иначе у юзера будут две иконки слева (custom + default).
-                final_text = strip_leading_emoji(text) if resolved_emoji else text
-
                 return InlineKeyboardButton(
                     text=final_text,
                     web_app=types.WebAppInfo(url=url),
                     style=resolved_style,
                     icon_custom_emoji_id=resolved_emoji or None,
                 )
+
+            # No cabinet URL configured (cabinet disabled) — keep the button's
+            # color, just route it through the bot's own callback instead of
+            # forcing the user out to the external cabinet web app.
+            return InlineKeyboardButton(
+                text=final_text,
+                callback_data=callback_data,
+                style=resolved_style,
+                icon_custom_emoji_id=resolved_emoji or None,
+            )
 
     return InlineKeyboardButton(text=text, callback_data=callback_data)
 

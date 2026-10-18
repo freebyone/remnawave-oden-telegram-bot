@@ -111,6 +111,29 @@ def test_cabinet_mode_without_url_falls_back_to_callback(monkeypatch: pytest.Mon
     assert button.callback_data == 'se:42'
 
 
+def test_cabinet_mode_without_url_keeps_button_color(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Отключённый веб-кабинет (пустой ``MINIAPP_CUSTOM_URL``) не должен красить
+    кнопки в серый цвет Telegram по умолчанию.
+
+    Кнопка должна остаться такой же цветной (``style='success'`` для секции
+    ``subscription``), просто без ``web_app`` — пользователя больше не
+    выгоняют на внешний сайт кабинета, но внешний вид главного меню не меняется.
+    """
+    monkeypatch.setattr(settings, 'MAIN_MENU_MODE', 'cabinet', raising=False)
+    monkeypatch.setattr(settings, 'MINIAPP_CUSTOM_URL', '', raising=False)
+    _multi_tariff(monkeypatch, False)
+
+    button = build_subscription_extend_button('💎 Продлить подписку')
+
+    assert button.web_app is None
+    assert button.callback_data == 'subscription_extend'
+    assert button.style == 'success', (
+        f'Expected the button to keep its cabinet-mode color even without a '
+        f'cabinet URL, got style={button.style!r}. Disabling the external '
+        'cabinet web app must not also strip the colored main-menu look.'
+    )
+
+
 def test_dynamic_callback_keeps_subscription_section_styling(cabinet_mode) -> None:
     """Стиль берётся по секции ``subscription``, а не теряется из-за ``se:{id}``.
 

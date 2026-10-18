@@ -396,32 +396,42 @@ def _build_cabinet_main_menu_keyboard(
         icon_custom_emoji_id: str | None = None,
     ) -> InlineKeyboardButton:
         url = build_cabinet_url(path)
+
+        section = CALLBACK_TO_SECTION.get(callback_fallback)
+        section_cfg = cached_styles.get(section or '', {}) if section else {}
+
+        # 'default' in per-section config means "no color" — do not fall through.
+        if style:
+            resolved = _resolve_style(style)
+        elif section_cfg.get('style'):
+            resolved = _resolve_style(section_cfg['style'])
+        else:
+            resolved = global_style or _resolve_style(CALLBACK_TO_CABINET_STYLE.get(callback_fallback))
+        resolved_emoji = icon_custom_emoji_id or section_cfg.get('icon_custom_emoji_id') or None
+
+        # При наличии custom emoji стрипаем ведущий юникод-emoji из текста —
+        # иначе Telegram нарисует обе иконки.
+        from app.utils.miniapp_buttons import strip_leading_emoji
+
+        final_text = strip_leading_emoji(text) if resolved_emoji else text
+
         if url:
-            section = CALLBACK_TO_SECTION.get(callback_fallback)
-            section_cfg = cached_styles.get(section or '', {}) if section else {}
-
-            # 'default' in per-section config means "no color" — do not fall through.
-            if style:
-                resolved = _resolve_style(style)
-            elif section_cfg.get('style'):
-                resolved = _resolve_style(section_cfg['style'])
-            else:
-                resolved = global_style or _resolve_style(CALLBACK_TO_CABINET_STYLE.get(callback_fallback))
-            resolved_emoji = icon_custom_emoji_id or section_cfg.get('icon_custom_emoji_id') or None
-
-            # При наличии custom emoji стрипаем ведущий юникод-emoji из текста —
-            # иначе Telegram нарисует обе иконки.
-            from app.utils.miniapp_buttons import strip_leading_emoji
-
-            final_text = strip_leading_emoji(text) if resolved_emoji else text
-
             return InlineKeyboardButton(
                 text=final_text,
                 web_app=types.WebAppInfo(url=url),
                 style=resolved,
                 icon_custom_emoji_id=resolved_emoji or None,
             )
-        return InlineKeyboardButton(text=text, callback_data=callback_fallback)
+
+        # Кабинет отключён (нет MINIAPP_CUSTOM_URL) — кнопка остаётся такой же
+        # цветной, но ведёт на обычный callback внутри бота, а не на внешний
+        # веб-кабинет.
+        return InlineKeyboardButton(
+            text=final_text,
+            callback_data=callback_fallback,
+            style=resolved,
+            icon_custom_emoji_id=resolved_emoji or None,
+        )
 
     # -- Collect row definitions sorted by row_N key --
     row_keys = sorted(
@@ -476,6 +486,12 @@ def _build_cabinet_main_menu_keyboard(
             match btn_id:
                 case 'home':
                     if not section_cfg.get('enabled', True):
+                        continue
+                    # Эта кнопка только открывает корень веб-кабинета — без
+                    # MINIAPP_CUSTOM_URL ей нечего делать, и показывать
+                    # кнопку, которая всегда отвечает «кабинет недоступен»,
+                    # хуже, чем просто её не рисовать.
+                    if not build_cabinet_url('/'):
                         continue
                     home_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
                         'MENU_PROFILE', '👤 Личный кабинет'
@@ -551,7 +567,11 @@ def _build_cabinet_main_menu_keyboard(
                             text=texts.MENU_ADMIN, callback_data='admin_panel', style=admin_callback_style
                         )
                     ]
-                    if section_cfg.get('enabled', True):
+                    # Без MINIAPP_CUSTOM_URL эта кнопка вела бы на тот же
+                    # callback_data='admin_panel', что и первая — дублируя
+                    # её под обманчивым лейблом «Веб-Админка». Показываем
+                    # её только когда реально можно открыть веб-кабинет.
+                    if section_cfg.get('enabled', True) and build_cabinet_url('/admin'):
                         admin_web_text = section_cfg.get('labels', {}).get(language, '') or '🖥 Веб-Админка'
                         admin_row.append(_cabinet_button(admin_web_text, '/admin', 'admin_panel'))
                     keyboard_rows.append(admin_row)
