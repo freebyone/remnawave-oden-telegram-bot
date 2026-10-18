@@ -278,10 +278,9 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
             'Кнопка "Подключиться" не будет работать.'
         )
     if settings.is_cabinet_mode() and not settings.MINIAPP_CUSTOM_URL:
-        logger.warning(
-            '⚠️ MAIN_MENU_MODE=cabinet, но MINIAPP_CUSTOM_URL не задан! '
-            'Кнопки кабинета не смогут открывать разделы MiniApp. '
-            'Установите MINIAPP_CUSTOM_URL.'
+        logger.info(
+            '🏠 Режим Cabinet активен без MINIAPP_CUSTOM_URL — кнопки сохраняют цвет, '
+            'но работают как обычные кнопки бота (без веб-кабинета/MiniApp).'
         )
     elif settings.is_cabinet_mode():
         logger.info('🏠 Режим Cabinet активен, базовый URL', MINIAPP_CUSTOM_URL=settings.MINIAPP_CUSTOM_URL)
