@@ -531,6 +531,48 @@ def _build_cabinet_main_menu_keyboard(
                     sup_text = section_cfg.get('labels', {}).get(language, '') or texts.MENU_SUPPORT
                     row_buttons.append(_cabinet_button(sup_text, '/support', 'menu_support'))
 
+                case 'buy_subscription':
+                    if not section_cfg.get('enabled', True):
+                        continue
+                    buy_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
+                        'MAIN_MENU_PAY_SUBSCRIPTION', '💎 Оплатить подписку'
+                    )
+                    row_buttons.append(_cabinet_button(buy_text, '/subscription', 'menu_buy'))
+
+                case 'connect':
+                    if not section_cfg.get('enabled', True):
+                        continue
+                    connect_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
+                        'MAIN_MENU_CONNECT_VPN', '🔌 Подключить VPN'
+                    )
+                    row_buttons.append(_cabinet_button(connect_text, '/subscription', 'subscription_connect'))
+
+                case 'trial':
+                    if not section_cfg.get('enabled', True):
+                        continue
+                    trial_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
+                        'MAIN_MENU_TRIAL_PERIOD', '🎁 Пробный период'
+                    )
+                    row_buttons.append(_cabinet_button(trial_text, '/subscription', 'menu_trial'))
+
+                case 'my_profile':
+                    if not section_cfg.get('enabled', True):
+                        continue
+                    profile_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
+                        'MAIN_MENU_MY_PROFILE', '👤 Мой профиль'
+                    )
+                    row_buttons.append(_cabinet_button(profile_text, '/profile', 'menu_my_profile'))
+
+                case 'invite_friend':
+                    if not settings.is_referral_program_enabled():
+                        continue
+                    if not section_cfg.get('enabled', True):
+                        continue
+                    invite_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
+                        'MAIN_MENU_INVITE_FRIEND', '🤝 Пригласить друга'
+                    )
+                    row_buttons.append(_cabinet_button(invite_text, '/referral', 'referral_create_invite'))
+
                 case 'info':
                     if not section_cfg.get('enabled', True):
                         continue

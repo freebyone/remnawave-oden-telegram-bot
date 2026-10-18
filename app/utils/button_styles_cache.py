@@ -24,6 +24,11 @@ DEFAULT_BUTTON_STYLES: dict[str, dict] = {
     'info': {'style': 'primary', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
     'admin': {'style': 'danger', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
     'language': {'style': 'primary', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
+    'buy_subscription': {'style': 'danger', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
+    'connect': {'style': 'success', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
+    'trial': {'style': 'primary', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
+    'my_profile': {'style': 'primary', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
+    'invite_friend': {'style': 'success', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
 }
 
 BOT_LOCALES = ('ru', 'en', 'ua', 'zh', 'fa')
@@ -38,10 +43,8 @@ CALLBACK_TO_SECTION: dict[str, str] = {
     'subscription': 'subscription',
     'subscription_extend': 'subscription',
     'subscription_upgrade': 'subscription',
-    'subscription_connect': 'subscription',
     'subscription_resume_checkout': 'subscription',
     'return_to_saved_cart': 'subscription',
-    'menu_buy': 'subscription',
     'buy_traffic': 'subscription',
     'menu_balance': 'balance',
     'balance_topup': 'balance',
@@ -50,6 +53,11 @@ CALLBACK_TO_SECTION: dict[str, str] = {
     'menu_support': 'support',
     'menu_info': 'info',
     'admin_panel': 'admin',
+    'menu_buy': 'buy_subscription',
+    'subscription_connect': 'connect',
+    'menu_trial': 'trial',
+    'menu_my_profile': 'my_profile',
+    'referral_create_invite': 'invite_friend',
 }
 
 # DB key used for storage.

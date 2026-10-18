@@ -413,6 +413,64 @@ async def show_info_menu(
     await callback.answer()
 
 
+async def show_my_profile(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    if db_user is None:
+        texts = get_texts(settings.DEFAULT_LANGUAGE)
+        await callback.answer(
+            texts.t(
+                'USER_NOT_FOUND_ERROR',
+                'Ошибка: пользователь не найден.',
+            ),
+            show_alert=True,
+        )
+        return
+
+    texts = get_texts(db_user.language)
+
+    display_name = db_user.first_name or (f'@{db_user.username}' if db_user.username else None) or str(
+        db_user.telegram_id or db_user.id
+    )
+    joined_date = format_local_datetime(db_user.created_at, '%d.%m.%Y') if db_user.created_at else '—'
+
+    profile_text = (
+        texts.t('MY_PROFILE_HEADER', '👤 <b>Мой профиль</b>')
+        + '\n\n'
+        + texts.t('MY_PROFILE_NAME', '📝 Имя: <b>{name}</b>').format(name=html.escape(display_name))
+        + '\n'
+        + texts.t('MY_PROFILE_ID', '🆔 ID: <code>{id}</code>').format(id=db_user.telegram_id or db_user.id)
+        + '\n'
+        + texts.t('MY_PROFILE_JOINED', '📅 В сервисе с: {date}').format(date=joined_date)
+        + '\n'
+        + texts.t('MY_PROFILE_BALANCE', '💰 Баланс: <b>{balance}</b>').format(
+            balance=texts.format_price(db_user.balance_kopeks or 0)
+        )
+    )
+
+    keyboard = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('TOPUP_BALANCE_BUTTON', '💳 Пополнить баланс'),
+                    callback_data='balance_topup',
+                )
+            ],
+            [types.InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
+        ]
+    )
+
+    await edit_or_answer_photo(
+        callback=callback,
+        caption=profile_text,
+        keyboard=keyboard,
+        parse_mode='HTML',
+    )
+    await callback.answer()
+
+
 async def show_promo_groups_info(
     callback: types.CallbackQuery,
     db_user: User,
@@ -1707,6 +1765,11 @@ def register_handlers(dp: Dispatcher):
     dp.callback_query.register(
         show_info_menu,
         F.data == 'menu_info',
+    )
+
+    dp.callback_query.register(
+        show_my_profile,
+        F.data == 'menu_my_profile',
     )
 
     dp.callback_query.register(
