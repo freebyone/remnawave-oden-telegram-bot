@@ -417,6 +417,7 @@ async def show_my_profile(
     callback: types.CallbackQuery,
     db_user: User,
     db: AsyncSession,
+    state: FSMContext | None = None,
 ):
     if db_user is None:
         texts = get_texts(settings.DEFAULT_LANGUAGE)
@@ -450,18 +451,53 @@ async def show_my_profile(
         )
     )
 
-    keyboard_rows = []
+    keyboard_rows: list[list[types.InlineKeyboardButton]] = []
 
-    # Профиль — точка входа в подписки: список, а из него уже менеджмент
-    # конкретной подписки. Раньше при единственной подписке кнопка вела сразу
-    # в sm:{id}, и «К списку подписок» на том экране уводила в список, который
-    # пользователь пропустил, — лишний уровень иерархии возникал на обратном пути.
+    # Профиль — личный кабинет внутри бота: при одной подписке её карточка и
+    # кнопки управления (ссылка, продление, автоплатёж, трафик, устройства)
+    # показаны прямо здесь; при нескольких — переход в их список.
     if settings.is_multi_tariff_enabled():
+        from app.database.crud.subscription import get_all_subscriptions_by_user_id
+        from app.handlers.subscription.my_subscriptions import (
+            build_subscription_action_rows,
+            format_subscription_detail_text,
+        )
+
+        subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
+
+        if len(subscriptions) == 1:
+            subscription = subscriptions[0]
+            # Кнопки без sub_id в callback (например, «Автоплатеж») берут
+            # подписку из FSM — как на отдельном экране подписки sm:{id}.
+            if state is not None:
+                await state.update_data(active_subscription_id=subscription.id)
+            profile_text += '\n\n' + format_subscription_detail_text(subscription)
+            keyboard_rows.extend(build_subscription_action_rows(subscription.id, subscription))
+        elif len(subscriptions) > 1:
+            keyboard_rows.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('MY_PROFILE_MY_SUBSCRIPTIONS', '📋 Мои подписки'),
+                        callback_data='my_subscriptions',
+                    )
+                ]
+            )
+        else:
+            profile_text += '\n\n' + texts.t('MY_PROFILE_NO_SUBSCRIPTION', '📦 У вас пока нет подписки.')
+            keyboard_rows.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('MAIN_MENU_PAY_SUBSCRIPTION', '💎 Оплатить подписку'),
+                        callback_data='menu_buy',
+                    )
+                ]
+            )
+
         keyboard_rows.append(
             [
                 types.InlineKeyboardButton(
-                    text=texts.t('MY_PROFILE_MY_SUBSCRIPTIONS', '📋 Мои подписки'),
-                    callback_data='my_subscriptions',
+                    text=texts.t('GIFT_SUBSCRIPTION_BUTTON', '🎁 Подарить подписку'),
+                    callback_data='subscription_gift',
                 )
             ]
         )

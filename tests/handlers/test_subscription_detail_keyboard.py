@@ -30,9 +30,12 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from app.config import Settings
 from app.handlers.subscription import my_subscriptions
 from app.handlers.subscription.my_subscriptions import (
     _build_subscription_detail_keyboard,
+    build_subscription_action_rows,
+    show_my_subscriptions,
     show_subscription_detail,
 )
 
@@ -169,3 +172,108 @@ async def test_show_subscription_detail_does_not_write_fsm_on_idor_miss(
 
     state.update_data.assert_not_called()
     callback.answer.assert_awaited_once()
+
+
+# ── Management embedded in «Мой профиль» ────────────────────────────────────
+
+
+def _full_subscription(sub_id: int) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=sub_id,
+        actual_status='active',
+        tariff=SimpleNamespace(name='Индивидуальная'),
+        traffic_limit_gb=0,
+        traffic_used_gb=0,
+        device_limit=3,
+        end_date=None,
+        status_display='🟢 Активна',
+        subscription_url=None,
+    )
+
+
+def test_action_rows_have_no_back_button() -> None:
+    """«Мой профиль» embeds the action rows and adds its own Back. The shared
+    rows must not carry the standalone screen's «К списку подписок», or the
+    profile would show two exits."""
+    rows = build_subscription_action_rows(42, SimpleNamespace(actual_status='active'))
+
+    callbacks = [button.callback_data for row in rows for button in row]
+    assert 'my_subscriptions' not in callbacks
+    assert 'se:42' in callbacks
+    assert 'subscription_autopay' in callbacks
+
+    standalone = _callbacks(_build_subscription_detail_keyboard(42, SimpleNamespace(actual_status='active')))
+    assert standalone[-1] == 'my_subscriptions'
+
+
+@pytest.mark.anyio('asyncio')
+async def test_single_subscription_detail_opens_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    """sm:{id} is where Back from traffic/devices/etc. leads. With one
+    subscription its controls live in «Мой профиль», so the detail screen
+    must hand off there — after still writing the FSM id autopay depends on."""
+    sub = _full_subscription(7)
+    monkeypatch.setattr(my_subscriptions, 'get_subscription_by_id_for_user', AsyncMock(return_value=sub))
+    monkeypatch.setattr(my_subscriptions, 'get_all_subscriptions_by_user_id', AsyncMock(return_value=[sub]))
+    show_profile = AsyncMock()
+    monkeypatch.setattr('app.handlers.menu.show_my_profile', show_profile)
+
+    state = SimpleNamespace(update_data=AsyncMock())
+    db_user = SimpleNamespace(id=1, language='ru')
+    db = SimpleNamespace()
+    callback = SimpleNamespace(
+        data='sm:7',
+        answer=AsyncMock(),
+        message=SimpleNamespace(edit_text=AsyncMock()),
+    )
+
+    await show_subscription_detail(callback, db_user, db, state)
+
+    state.update_data.assert_any_call(active_subscription_id=7)
+    show_profile.assert_awaited_once_with(callback, db_user, db, state)
+    callback.message.edit_text.assert_not_awaited()
+
+
+@pytest.mark.anyio('asyncio')
+async def test_multiple_subscriptions_detail_renders_card(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With several subscriptions the standalone card stays, and Back leads to the list."""
+    sub = _full_subscription(7)
+    monkeypatch.setattr(my_subscriptions, 'get_subscription_by_id_for_user', AsyncMock(return_value=sub))
+    monkeypatch.setattr(
+        my_subscriptions, 'get_all_subscriptions_by_user_id', AsyncMock(return_value=[sub, _full_subscription(8)])
+    )
+    show_profile = AsyncMock()
+    monkeypatch.setattr('app.handlers.menu.show_my_profile', show_profile)
+
+    callback = SimpleNamespace(
+        data='sm:7',
+        answer=AsyncMock(),
+        message=SimpleNamespace(edit_text=AsyncMock()),
+    )
+
+    await show_subscription_detail(
+        callback, SimpleNamespace(id=1, language='ru'), SimpleNamespace(), SimpleNamespace(update_data=AsyncMock())
+    )
+
+    show_profile.assert_not_awaited()
+    _, kwargs = callback.message.edit_text.call_args
+    assert 'my_subscriptions' in _callbacks(kwargs['reply_markup'])
+
+
+@pytest.mark.anyio('asyncio')
+async def test_single_subscription_list_opens_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Many Back buttons lead to the list (menu_subscription, gift cancel,
+    reissue). A one-item list is a dead step, so it hands off to the profile."""
+    monkeypatch.setattr(Settings, 'is_multi_tariff_enabled', lambda self: True)
+    monkeypatch.setattr(
+        my_subscriptions, 'get_all_subscriptions_by_user_id', AsyncMock(return_value=[_full_subscription(7)])
+    )
+    show_profile = AsyncMock()
+    monkeypatch.setattr('app.handlers.menu.show_my_profile', show_profile)
+
+    callback = SimpleNamespace(answer=AsyncMock(), message=SimpleNamespace(edit_text=AsyncMock()))
+    db_user = SimpleNamespace(id=1, language='ru')
+
+    await show_my_subscriptions(callback, db_user, SimpleNamespace())
+
+    show_profile.assert_awaited_once()
+    callback.message.edit_text.assert_not_awaited()

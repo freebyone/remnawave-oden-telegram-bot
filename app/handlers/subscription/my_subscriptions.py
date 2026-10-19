@@ -125,10 +125,13 @@ def _build_subscriptions_keyboard(
     return types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def _build_subscription_detail_keyboard(sub_id: int, sub=None) -> types.InlineKeyboardMarkup:
-    """Build keyboard for single subscription management.
+def build_subscription_action_rows(sub_id: int, sub=None) -> list[list[types.InlineKeyboardButton]]:
+    """Management buttons for one subscription, without a back button.
 
-    For expired/disabled subscriptions, only 'Renew' and 'Back' are shown —
+    Shared by the standalone management screen (sm:{id}) and «Мой профиль»,
+    which shows the same controls inline for users with a single subscription.
+
+    For expired/disabled subscriptions, only 'Renew' and 'Delete' are shown —
     connection link and traffic/device management are irrelevant.
     """
     is_inactive = sub is not None and sub.actual_status in ('expired', 'disabled')
@@ -158,9 +161,42 @@ def _build_subscription_detail_keyboard(sub_id: int, sub=None) -> types.InlineKe
             ]
         )
 
+    return buttons
+
+
+def _build_subscription_detail_keyboard(sub_id: int, sub=None) -> types.InlineKeyboardMarkup:
+    """Build keyboard for the standalone single-subscription management screen."""
+    buttons = build_subscription_action_rows(sub_id, sub)
     buttons.append([types.InlineKeyboardButton(text='◀️ К списку подписок', callback_data='my_subscriptions')])
 
     return types.InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def format_subscription_detail_text(subscription) -> str:
+    """Subscription card: tariff, status, traffic, devices, end date and link."""
+    tariff_name = subscription.tariff.name if subscription.tariff else 'Подписка'
+
+    if subscription.traffic_limit_gb == 0:
+        traffic = '∞ ГБ'
+    else:
+        used = f'{subscription.traffic_used_gb:.1f}' if subscription.traffic_used_gb else '0'
+        traffic = f'{used} / {subscription.traffic_limit_gb} ГБ'
+
+    end_date = format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M') if subscription.end_date else '—'
+    status = subscription.status_display
+
+    text = (
+        f'📋 <b>{tariff_name}</b>\n\n'
+        f'Статус: {status}\n'
+        f'📊 Трафик: {traffic}\n'
+        f'📱 Устройства: {Texts.format_device_limit(subscription.device_limit)}\n'
+        f'📅 До: {end_date}\n'
+    )
+
+    if subscription.subscription_url and not settings.should_hide_subscription_link():
+        text += f'\n🔗 <code>{subscription.subscription_url}</code>'
+
+    return text
 
 
 async def show_my_subscriptions(
@@ -177,6 +213,15 @@ async def show_my_subscriptions(
     texts = get_texts(db_user.language)
     gift_enabled = True
     subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
+
+    # Единственная подписка управляется прямо из «Мой профиль», а список из
+    # одного пункта — лишний шаг. Сюда ведут многие «Назад» (menu_subscription,
+    # отмена подарка, перевыпуск), поэтому перенаправляем здесь, а не в каждой кнопке.
+    if len(subscriptions) == 1:
+        from app.handlers.menu import show_my_profile
+
+        await show_my_profile(callback, db_user, db, state)
+        return
 
     if not subscriptions:
         text = '📋 <b>Мои подписки</b>\n\nУ вас нет подписок.'
@@ -230,29 +275,18 @@ async def show_subscription_detail(
     # (e.g. 'subscription_autopay') can resolve the right subscription via FSM.
     await state.update_data(active_subscription_id=sub_id)
 
-    tariff_name = subscription.tariff.name if subscription.tariff else 'Подписка'
+    # С одной подпиской её управление живёт прямо в «Мой профиль». sm:{id} —
+    # это куда ведут «Назад» с экранов трафика, устройств и т.п., поэтому он
+    # тоже открывает профиль: иначе обратный путь шёл бы через отдельный экран
+    # подписки и список из одного пункта, которых пользователь не проходил.
+    subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
+    if len(subscriptions) == 1:
+        from app.handlers.menu import show_my_profile
 
-    # Traffic
-    if subscription.traffic_limit_gb == 0:
-        traffic = '∞ ГБ'
-    else:
-        used = f'{subscription.traffic_used_gb:.1f}' if subscription.traffic_used_gb else '0'
-        traffic = f'{used} / {subscription.traffic_limit_gb} ГБ'
+        await show_my_profile(callback, db_user, db, state)
+        return
 
-    end_date = format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M') if subscription.end_date else '—'
-    status = subscription.status_display
-
-    text = (
-        f'📋 <b>{tariff_name}</b>\n\n'
-        f'Статус: {status}\n'
-        f'📊 Трафик: {traffic}\n'
-        f'📱 Устройства: {Texts.format_device_limit(subscription.device_limit)}\n'
-        f'📅 До: {end_date}\n'
-    )
-
-    if subscription.subscription_url and not settings.should_hide_subscription_link():
-        text += f'\n🔗 <code>{subscription.subscription_url}</code>'
-
+    text = format_subscription_detail_text(subscription)
     keyboard = _build_subscription_detail_keyboard(sub_id, sub=subscription)
 
     if callback.message:
