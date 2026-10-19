@@ -1,6 +1,6 @@
 """Regression test: cabinet-mode main menu exposes exactly the six
 user-facing buttons requested for the simplified /start screen — Оплатить
-подписку, Подключить VPN, Пробный период, Мой профиль, Пригласить друга,
+подписку, Подключить VPN, Пробный период, Мой профиль, Подарить другу,
 Реферальная система — each on its own row, each keeping its Bot API 9.4
 color even though the external cabinet web app is disabled
 (MINIAPP_CUSTOM_URL empty).
@@ -19,7 +19,7 @@ EXPECTED_CALLBACKS = [
     'subscription_connect',
     'menu_trial',
     'menu_my_profile',
-    'referral_create_invite',
+    'gift_from_menu',
     'menu_referrals',
 ]
 

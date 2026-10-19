@@ -577,14 +577,15 @@ def _build_cabinet_main_menu_keyboard(
                     row_buttons.append(_cabinet_button(profile_text, '/profile', 'menu_my_profile'))
 
                 case 'invite_friend':
-                    if not settings.is_referral_program_enabled():
-                        continue
+                    # Секция исторически называется invite_friend (так она записана
+                    # в CABINET_MENU_LAYOUT в БД), но кнопка — «Подарить другу»:
+                    # покупка подписки в подарок. Приглашение есть в «Реферальной системе».
                     if not section_cfg.get('enabled', True):
                         continue
-                    invite_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
-                        'MAIN_MENU_INVITE_FRIEND', '🤝 Пригласить друга'
+                    gift_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
+                        'MAIN_MENU_GIFT_FRIEND', '🎁 Подарить другу'
                     )
-                    row_buttons.append(_cabinet_button(invite_text, '/referral', 'referral_create_invite'))
+                    row_buttons.append(_cabinet_button(gift_text, '/subscription', 'gift_from_menu'))
 
                 case 'info':
                     if not section_cfg.get('enabled', True):
@@ -2543,6 +2544,19 @@ def get_referral_keyboard(language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMar
                 )
             ]
         )
+    else:
+        # Заявки на вывод в боте выключены — выводим через поддержку
+        # (SUPPORT_USERNAME, в проде @oden_vpn_support).
+        support_url = settings.get_support_contact_url()
+        if support_url:
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        text=texts.t('REFERRAL_WITHDRAW_SUPPORT_BUTTON', '💸 Вывести средства'),
+                        url=support_url,
+                    )
+                ]
+            )
 
     keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
 

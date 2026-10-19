@@ -2318,12 +2318,13 @@
   "MAIN_MENU_CONNECT_VPN": "🔌 连接 VPN",
   "MAIN_MENU_TRIAL_PERIOD": "🎁 免费试用",
   "MAIN_MENU_MY_PROFILE": "👤 我的资料",
-  "MAIN_MENU_INVITE_FRIEND": "🤝 邀请好友",
   "MY_PROFILE_HEADER": "👤 <b>我的资料</b>",
   "MY_PROFILE_NAME": "📝 名称：<b>{name}</b>",
   "MY_PROFILE_ID": "🆔 ID：<code>{id}</code>",
   "MY_PROFILE_JOINED": "📅 注册时间：{date}",
   "MY_PROFILE_BALANCE": "💰 余额：<b>{balance}</b>",
   "MY_PROFILE_MY_SUBSCRIPTIONS": "📋 我的订阅",
-  "MY_PROFILE_NO_SUBSCRIPTION": "📦 您还没有订阅。"
+  "MY_PROFILE_NO_SUBSCRIPTION": "📦 您还没有订阅。",
+  "MAIN_MENU_GIFT_FRIEND": "🎁 送给朋友",
+  "REFERRAL_WITHDRAW_SUPPORT_BUTTON": "💸 提现"
 }

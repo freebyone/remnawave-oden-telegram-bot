@@ -57,7 +57,7 @@ CALLBACK_TO_SECTION: dict[str, str] = {
     'subscription_connect': 'connect',
     'menu_trial': 'trial',
     'menu_my_profile': 'my_profile',
-    'referral_create_invite': 'invite_friend',
+    'gift_from_menu': 'invite_friend',
 }
 
 # DB key used for storage.
