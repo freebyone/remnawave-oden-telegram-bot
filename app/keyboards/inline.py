@@ -3173,10 +3173,10 @@ def get_device_selection_keyboard(
     sub_id: int | None = None,
 ) -> InlineKeyboardMarkup:
     texts = get_texts(language)
-    # Назад с экрана выбора устройства ведёт в список подписок, а не в детальный
-    # менеджмент конкретной подписки (sm:{id}) — тот теперь открывается только
-    # из «Мой профиль» или списка, а не как промежуточный шаг «Подключить VPN».
-    back_cb = 'my_subscriptions' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
+    # «Подключить VPN» — пункт главного меню, поэтому Назад возвращает туда же,
+    # откуда пришли. Раньше вело в менеджмент подписки (sm:{id}), а затем в её
+    # список — оба экрана к задаче «подключить устройство» отношения не имеют.
+    back_cb = 'back_to_menu' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
 
     keyboard: list[list[InlineKeyboardButton]] = []
 
@@ -3228,11 +3228,10 @@ def get_connection_guide_keyboard(
     sub_id: int | None = None,
 ) -> InlineKeyboardMarkup:
     texts = get_texts(language)
-    # Та же логика, что и в get_device_selection_keyboard: «К подписке» из
-    # гайда конкретного устройства должно вести в список подписок, а не в
-    # детальный менеджмент (sm:{id}), иначе пользователь из простого «Подключить
-    # VPN» попадает на экран с «Продлить/Автоплатёж/Устройства» и т.д.
-    back_cb = 'my_subscriptions' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
+    # Та же логика, что и в get_device_selection_keyboard: гайд по устройству
+    # открыт из главного меню, поэтому и возврат — в главное меню, а не в
+    # менеджмент подписки или её список.
+    back_cb = 'back_to_menu' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
 
     keyboard: list[list[InlineKeyboardButton]] = []
 

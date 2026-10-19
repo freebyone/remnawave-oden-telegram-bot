@@ -114,10 +114,11 @@ def _build_subscriptions_keyboard(
                 )
             ]
         )
-    # Back button
+    # Назад — в профиль: список подписок открывается именно оттуда, и возврат
+    # сразу в главное меню пропускал бы уровень, с которого пришёл пользователь.
     buttons.append(
         [
-            types.InlineKeyboardButton(text='◀️ Назад', callback_data='back_to_menu'),
+            types.InlineKeyboardButton(text='◀️ Назад', callback_data='menu_my_profile'),
         ]
     )
 
@@ -191,7 +192,7 @@ async def show_my_subscriptions(
                     )
                 ]
             )
-        buttons.append([types.InlineKeyboardButton(text='◀️ Назад', callback_data='back_to_menu')])
+        buttons.append([types.InlineKeyboardButton(text='◀️ Назад', callback_data='menu_my_profile')])
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     else:
         lines = ['📋 <b>Мои подписки</b>\n']

@@ -452,28 +452,19 @@ async def show_my_profile(
 
     keyboard_rows = []
 
+    # Профиль — точка входа в подписки: список, а из него уже менеджмент
+    # конкретной подписки. Раньше при единственной подписке кнопка вела сразу
+    # в sm:{id}, и «К списку подписок» на том экране уводила в список, который
+    # пользователь пропустил, — лишний уровень иерархии возникал на обратном пути.
     if settings.is_multi_tariff_enabled():
-        from app.database.crud.subscription import get_all_subscriptions_by_user_id
-
-        subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
-        if len(subscriptions) == 1:
-            keyboard_rows.append(
-                [
-                    types.InlineKeyboardButton(
-                        text=texts.t('MY_PROFILE_MANAGE_SUBSCRIPTION', '⚙️ Управление подпиской'),
-                        callback_data=f'sm:{subscriptions[0].id}',
-                    )
-                ]
-            )
-        elif len(subscriptions) > 1:
-            keyboard_rows.append(
-                [
-                    types.InlineKeyboardButton(
-                        text=texts.t('MY_PROFILE_MY_SUBSCRIPTIONS', '📋 Мои подписки'),
-                        callback_data='my_subscriptions',
-                    )
-                ]
-            )
+        keyboard_rows.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('MY_PROFILE_MY_SUBSCRIPTIONS', '📋 Мои подписки'),
+                    callback_data='my_subscriptions',
+                )
+            ]
+        )
 
     keyboard_rows.append(
         [
