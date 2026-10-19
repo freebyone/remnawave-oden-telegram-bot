@@ -2499,27 +2499,37 @@ def get_autopay_notification_keyboard(subscription_id: int, language: str = DEFA
     )
 
 
-def get_referral_keyboard(language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMarkup:
+def get_referral_keyboard(language: str = DEFAULT_LANGUAGE, invite_share_url: str | None = None) -> InlineKeyboardMarkup:
+    """Упрощённый экран реферальной системы: пригласить и вывести.
+
+    QR, список рефералов и аналитика с экрана убраны (обработчики остались).
+    Вывод средств — через поддержку, а не заявкой в боте.
+    """
     texts = get_texts(language)
 
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                text=texts.t('CREATE_INVITE_BUTTON', '📝 Создать приглашение'), callback_data='referral_create_invite'
-            )
-        ],
-        [InlineKeyboardButton(text=texts.t('SHOW_QR_BUTTON', '📱 Показать QR код'), callback_data='referral_show_qr')],
-        [
-            InlineKeyboardButton(
-                text=texts.t('REFERRAL_LIST_BUTTON', '👥 Список рефералов'), callback_data='referral_list'
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=texts.t('REFERRAL_ANALYTICS_BUTTON', '📊 Аналитика'), callback_data='referral_analytics'
-            )
-        ],
-    ]
+    keyboard: list[list[InlineKeyboardButton]] = []
+
+    # t.me/share/url открывает в Telegram список чатов, куда переслать ссылку.
+    if invite_share_url:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('REFERRAL_SEND_INVITE_BUTTON', '📤 Отправить приглашение'),
+                    url=invite_share_url,
+                )
+            ]
+        )
+
+    support_url = settings.get_support_contact_url()
+    if support_url:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('REFERRAL_WITHDRAW_SUPPORT_BUTTON', '💸 Вывод средств'),
+                    url=support_url,
+                )
+            ]
+        )
 
     # Кнопка появляется, только когда админ разрешил хотя бы одну из настроек:
     # экран, на котором нечего менять, обещает влияние, которого нет.
@@ -2533,18 +2543,8 @@ def get_referral_keyboard(language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMar
             ]
         )
 
-    # Добавляем кнопку вывода, если включена
-    if settings.is_referral_withdrawal_enabled():
-        keyboard.append(
-            [
-                InlineKeyboardButton(
-                    text=texts.t('REFERRAL_WITHDRAWAL_BUTTON', '💸 Запросить вывод'),
-                    callback_data='referral_withdrawal',
-                )
-            ]
-        )
-
-    keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
+    # Реферальная система открывается из «Мой профиль» — туда и возврат.
+    keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='menu_my_profile')])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 

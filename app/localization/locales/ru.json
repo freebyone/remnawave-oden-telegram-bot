@@ -2325,5 +2325,9 @@
   "MY_PROFILE_JOINED": "📅 В сервисе с: {date}",
   "MY_PROFILE_BALANCE": "💰 Баланс: <b>{balance}</b>",
   "MY_PROFILE_MY_SUBSCRIPTIONS": "📋 Мои подписки",
-  "MY_PROFILE_NO_SUBSCRIPTION": "📦 У вас пока нет подписки."
+  "MY_PROFILE_NO_SUBSCRIPTION": "📦 У вас пока нет подписки.",
+  "MY_PROFILE_REFERRAL_BUTTON": "🤝 Реферальная система",
+  "REFERRAL_SEND_INVITE_BUTTON": "📤 Отправить приглашение",
+  "REFERRAL_WITHDRAW_SUPPORT_BUTTON": "💸 Вывод средств",
+  "REFERRAL_SHARE_TEXT": "🚀 Быстрый и стабильный VPN — подключайся по моей ссылке"
 }

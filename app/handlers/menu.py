@@ -502,6 +502,16 @@ async def show_my_profile(
             ]
         )
 
+    if settings.is_referral_program_enabled():
+        keyboard_rows.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('MY_PROFILE_REFERRAL_BUTTON', '🤝 Реферальная система'),
+                    callback_data='menu_referrals',
+                )
+            ]
+        )
+
     # Всё, что раньше было на отдельном экране баланса (menu_balance теперь
     # перенаправляет сюда): пополнение, история операций, привязанные карты.
     keyboard_rows.append(
