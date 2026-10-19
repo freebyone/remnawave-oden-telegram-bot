@@ -48,7 +48,6 @@ async def test_balance_menu_opens_profile(monkeypatch: pytest.MonkeyPatch) -> No
 async def test_profile_has_balance_actions_without_loop(monkeypatch: pytest.MonkeyPatch) -> None:
     # Keep the subscription section out of the way: it needs a database.
     monkeypatch.setattr(Settings, 'is_multi_tariff_enabled', lambda self: False)
-    monkeypatch.setattr(Settings, 'is_referral_program_enabled', lambda self: True)
     render = AsyncMock()
     monkeypatch.setattr(menu, 'edit_or_answer_photo', render)
 
@@ -68,7 +67,6 @@ async def test_profile_has_balance_actions_without_loop(monkeypatch: pytest.Monk
     callbacks = _callbacks(render.call_args.kwargs['keyboard'])
     assert 'balance_topup' in callbacks
     assert 'balance_history' in callbacks
-    assert 'menu_referrals' in callbacks
     # The profile must not send the user to the old balance screen — that
     # screen's own «Пополнить» is what made the loop.
     assert 'menu_balance' not in callbacks

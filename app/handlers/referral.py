@@ -2,7 +2,6 @@ import hashlib
 import json
 from html import escape as html_escape
 from pathlib import Path
-from urllib.parse import quote
 
 import qrcode
 import structlog
@@ -345,15 +344,10 @@ async def show_referral_info(callback: types.CallbackQuery, db_user: User, db: A
         '📢 Приглашайте друзей и зарабатывайте!',
     )
 
-    share_text = texts.t('REFERRAL_SHARE_TEXT', '🚀 Быстрый и стабильный VPN — подключайся по моей ссылке')
-    invite_share_url = (
-        f'https://t.me/share/url?url={quote(bot_referral_link, safe="")}&text={quote(share_text, safe="")}'
-    )
-
     await edit_or_answer_photo(
         callback,
         referral_text,
-        get_referral_keyboard(db_user.language, invite_share_url=invite_share_url),
+        get_referral_keyboard(db_user.language),
     )
     await callback.answer()
 

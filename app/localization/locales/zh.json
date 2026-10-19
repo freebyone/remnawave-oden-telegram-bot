@@ -2325,9 +2325,5 @@
   "MY_PROFILE_JOINED": "📅 注册时间：{date}",
   "MY_PROFILE_BALANCE": "💰 余额：<b>{balance}</b>",
   "MY_PROFILE_MY_SUBSCRIPTIONS": "📋 我的订阅",
-  "MY_PROFILE_NO_SUBSCRIPTION": "📦 您还没有订阅。",
-  "MY_PROFILE_REFERRAL_BUTTON": "🤝 推荐计划",
-  "REFERRAL_SEND_INVITE_BUTTON": "📤 发送邀请",
-  "REFERRAL_WITHDRAW_SUPPORT_BUTTON": "💸 提现",
-  "REFERRAL_SHARE_TEXT": "🚀 快速稳定的 VPN — 通过我的链接加入"
+  "MY_PROFILE_NO_SUBSCRIPTION": "📦 您还没有订阅。"
 }

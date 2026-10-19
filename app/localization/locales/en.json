@@ -2325,9 +2325,5 @@
   "MY_PROFILE_JOINED": "📅 Member since: {date}",
   "MY_PROFILE_BALANCE": "💰 Balance: <b>{balance}</b>",
   "MY_PROFILE_MY_SUBSCRIPTIONS": "📋 My subscriptions",
-  "MY_PROFILE_NO_SUBSCRIPTION": "📦 You don't have a subscription yet.",
-  "MY_PROFILE_REFERRAL_BUTTON": "🤝 Referral program",
-  "REFERRAL_SEND_INVITE_BUTTON": "📤 Send an invite",
-  "REFERRAL_WITHDRAW_SUPPORT_BUTTON": "💸 Withdraw funds",
-  "REFERRAL_SHARE_TEXT": "🚀 Fast and stable VPN — join with my link"
+  "MY_PROFILE_NO_SUBSCRIPTION": "📦 You don't have a subscription yet."
 }

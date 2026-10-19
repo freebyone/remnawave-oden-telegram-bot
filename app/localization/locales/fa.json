@@ -2325,9 +2325,5 @@
   "MY_PROFILE_JOINED": "📅 عضو از: {date}",
   "MY_PROFILE_BALANCE": "💰 موجودی: <b>{balance}</b>",
   "MY_PROFILE_MY_SUBSCRIPTIONS": "📋 اشتراک‌های من",
-  "MY_PROFILE_NO_SUBSCRIPTION": "📦 هنوز اشتراکی ندارید.",
-  "MY_PROFILE_REFERRAL_BUTTON": "🤝 برنامه معرفی",
-  "REFERRAL_SEND_INVITE_BUTTON": "📤 ارسال دعوت‌نامه",
-  "REFERRAL_WITHDRAW_SUPPORT_BUTTON": "💸 برداشت وجه",
-  "REFERRAL_SHARE_TEXT": "🚀 VPN سریع و پایدار — با لینک من وصل شو"
+  "MY_PROFILE_NO_SUBSCRIPTION": "📦 هنوز اشتراکی ندارید."
 }
