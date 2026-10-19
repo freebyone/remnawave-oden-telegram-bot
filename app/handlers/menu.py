@@ -450,17 +450,42 @@ async def show_my_profile(
         )
     )
 
-    keyboard = types.InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                types.InlineKeyboardButton(
-                    text=texts.t('TOPUP_BALANCE_BUTTON', '💳 Пополнить баланс'),
-                    callback_data='balance_topup',
-                )
-            ],
-            [types.InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
+    keyboard_rows = []
+
+    if settings.is_multi_tariff_enabled():
+        from app.database.crud.subscription import get_all_subscriptions_by_user_id
+
+        subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
+        if len(subscriptions) == 1:
+            keyboard_rows.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('MY_PROFILE_MANAGE_SUBSCRIPTION', '⚙️ Управление подпиской'),
+                        callback_data=f'sm:{subscriptions[0].id}',
+                    )
+                ]
+            )
+        elif len(subscriptions) > 1:
+            keyboard_rows.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('MY_PROFILE_MY_SUBSCRIPTIONS', '📋 Мои подписки'),
+                        callback_data='my_subscriptions',
+                    )
+                ]
+            )
+
+    keyboard_rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t('TOPUP_BALANCE_BUTTON', '💳 Пополнить баланс'),
+                callback_data='balance_topup',
+            )
         ]
     )
+    keyboard_rows.append([types.InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
+
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
     await edit_or_answer_photo(
         callback=callback,

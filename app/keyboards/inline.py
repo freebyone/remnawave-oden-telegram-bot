@@ -367,6 +367,8 @@ def _build_cabinet_main_menu_keyboard(
     is_admin: bool,
     is_moderator: bool,
     balance_kopeks: int = 0,
+    has_had_paid_subscription: bool = False,
+    has_active_subscription: bool = False,
 ) -> InlineKeyboardMarkup:
     """Build the main-menu keyboard for Cabinet mode.
 
@@ -550,6 +552,17 @@ def _build_cabinet_main_menu_keyboard(
                 case 'trial':
                     if not section_cfg.get('enabled', True):
                         continue
+                    # Та же формула, что и в default-режиме (см. show_trial
+                    # ниже по файлу): триал не предлагаем тем, у кого уже
+                    # была платная подписка или есть активная сейчас.
+                    show_trial = (
+                        not has_had_paid_subscription
+                        and not has_active_subscription
+                        and settings.TRIAL_DURATION_DAYS > 0
+                        and settings.TRIAL_DISABLED_FOR != 'all'
+                    )
+                    if not show_trial:
+                        continue
                     trial_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
                         'MAIN_MENU_TRIAL_PERIOD', '🎁 Пробный период'
                     )
@@ -654,6 +667,8 @@ def get_main_menu_keyboard(
             is_admin=is_admin,
             is_moderator=is_moderator,
             balance_kopeks=balance_kopeks,
+            has_had_paid_subscription=has_had_paid_subscription,
+            has_active_subscription=has_active_subscription,
         )
 
     if settings.DEBUG:
@@ -3158,7 +3173,10 @@ def get_device_selection_keyboard(
     sub_id: int | None = None,
 ) -> InlineKeyboardMarkup:
     texts = get_texts(language)
-    back_cb = f'sm:{sub_id}' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
+    # Назад с экрана выбора устройства ведёт в список подписок, а не в детальный
+    # менеджмент конкретной подписки (sm:{id}) — тот теперь открывается только
+    # из «Мой профиль» или списка, а не как промежуточный шаг «Подключить VPN».
+    back_cb = 'my_subscriptions' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
 
     keyboard: list[list[InlineKeyboardButton]] = []
 
@@ -3210,7 +3228,11 @@ def get_connection_guide_keyboard(
     sub_id: int | None = None,
 ) -> InlineKeyboardMarkup:
     texts = get_texts(language)
-    back_cb = f'sm:{sub_id}' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
+    # Та же логика, что и в get_device_selection_keyboard: «К подписке» из
+    # гайда конкретного устройства должно вести в список подписок, а не в
+    # детальный менеджмент (sm:{id}), иначе пользователь из простого «Подключить
+    # VPN» попадает на экран с «Продлить/Автоплатёж/Устройства» и т.д.
+    back_cb = 'my_subscriptions' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
 
     keyboard: list[list[InlineKeyboardButton]] = []
 
