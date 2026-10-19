@@ -2313,5 +2313,17 @@
   "CASHERA_RECURRING_PAY_BUTTON": "💳 Confirm",
   "CASHERA_RECURRING_CANCEL_BUTTON": "🛑 Turn off Cashera auto-renewal",
   "CASHERA_RECURRING_MENU_BUTTON": "⚡ Auto-renewal via Cashera",
-  "CASHERA_RECURRING_CANCELLED": "✅ Cashera auto-renewal turned off"
+  "CASHERA_RECURRING_CANCELLED": "✅ Cashera auto-renewal turned off",
+  "MAIN_MENU_PAY_SUBSCRIPTION": "💎 Pay for subscription",
+  "MAIN_MENU_CONNECT_VPN": "🔌 Connect VPN",
+  "MAIN_MENU_TRIAL_PERIOD": "🎁 Free trial",
+  "MAIN_MENU_MY_PROFILE": "👤 My profile",
+  "MAIN_MENU_INVITE_FRIEND": "🤝 Invite a friend",
+  "MY_PROFILE_HEADER": "👤 <b>My profile</b>",
+  "MY_PROFILE_NAME": "📝 Name: <b>{name}</b>",
+  "MY_PROFILE_ID": "🆔 ID: <code>{id}</code>",
+  "MY_PROFILE_JOINED": "📅 Member since: {date}",
+  "MY_PROFILE_BALANCE": "💰 Balance: <b>{balance}</b>",
+  "MY_PROFILE_MY_SUBSCRIPTIONS": "📋 My subscriptions",
+  "MY_PROFILE_NO_SUBSCRIPTION": "📦 You don't have a subscription yet."
 }

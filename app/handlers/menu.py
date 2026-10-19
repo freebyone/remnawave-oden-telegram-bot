@@ -458,7 +458,7 @@ async def show_my_profile(
     # показаны прямо здесь; при нескольких — переход в их список.
     if settings.is_multi_tariff_enabled():
         from app.database.crud.subscription import get_all_subscriptions_by_user_id
-        from app.handlers.subscription.my_subscriptions import (
+        from app.utils.subscription_card import (
             build_subscription_action_rows,
             format_subscription_detail_text,
         )
@@ -502,6 +502,8 @@ async def show_my_profile(
             ]
         )
 
+    # Всё, что раньше было на отдельном экране баланса (menu_balance теперь
+    # перенаправляет сюда): пополнение, история операций, привязанные карты.
     keyboard_rows.append(
         [
             types.InlineKeyboardButton(
@@ -510,6 +512,16 @@ async def show_my_profile(
             )
         ]
     )
+    keyboard_rows.append([types.InlineKeyboardButton(text=texts.BALANCE_HISTORY, callback_data='balance_history')])
+    if settings.YOOKASSA_RECURRENT_ENABLED:
+        keyboard_rows.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('SAVED_CARDS_BUTTON', '💳 Привязанные карты'),
+                    callback_data='saved_cards_list',
+                )
+            ]
+        )
     keyboard_rows.append([types.InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
 
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows)

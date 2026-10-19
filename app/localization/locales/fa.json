@@ -2313,5 +2313,17 @@
   "CASHERA_RECURRING_PAY_BUTTON": "💳 تأیید",
   "CASHERA_RECURRING_CANCEL_BUTTON": "🛑 غیرفعال کردن تمدید خودکار Cashera",
   "CASHERA_RECURRING_MENU_BUTTON": "⚡ تمدید خودکار از طریق Cashera",
-  "CASHERA_RECURRING_CANCELLED": "✅ تمدید خودکار Cashera غیرفعال شد"
+  "CASHERA_RECURRING_CANCELLED": "✅ تمدید خودکار Cashera غیرفعال شد",
+  "MAIN_MENU_PAY_SUBSCRIPTION": "💎 پرداخت اشتراک",
+  "MAIN_MENU_CONNECT_VPN": "🔌 اتصال VPN",
+  "MAIN_MENU_TRIAL_PERIOD": "🎁 دوره آزمایشی",
+  "MAIN_MENU_MY_PROFILE": "👤 پروفایل من",
+  "MAIN_MENU_INVITE_FRIEND": "🤝 دعوت از دوست",
+  "MY_PROFILE_HEADER": "👤 <b>پروفایل من</b>",
+  "MY_PROFILE_NAME": "📝 نام: <b>{name}</b>",
+  "MY_PROFILE_ID": "🆔 شناسه: <code>{id}</code>",
+  "MY_PROFILE_JOINED": "📅 عضو از: {date}",
+  "MY_PROFILE_BALANCE": "💰 موجودی: <b>{balance}</b>",
+  "MY_PROFILE_MY_SUBSCRIPTIONS": "📋 اشتراک‌های من",
+  "MY_PROFILE_NO_SUBSCRIPTION": "📦 هنوز اشتراکی ندارید."
 }

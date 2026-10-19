@@ -13,7 +13,6 @@ from app.database.models import TransactionType, User
 from app.handlers.subscription.autopay import handle_confirm_unlink, handle_saved_cards_list, handle_unlink_card
 from app.keyboards.inline import (
     get_back_keyboard,
-    get_balance_keyboard,
     get_pagination_keyboard,
     get_payment_methods_keyboard,
 )
@@ -252,29 +251,24 @@ async def route_payment_by_method(
 
 
 @error_handler
-async def show_balance_menu(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+async def show_balance_menu(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext | None = None,
+):
     # Проверяем, доступно ли сообщение
     if isinstance(callback.message, InaccessibleMessage):
         await callback.answer()
         return
 
-    texts = get_texts(db_user.language)
+    # Баланс, пополнение и история операций живут в «Мой профиль». Отдельный
+    # экран баланса создавал петлю «Пополнить» → «Назад» (сюда) → «Пополнить».
+    # На menu_balance ведут «Назад» всех платёжных провайдеров, истории и
+    # привязанных карт, поэтому перенаправляем здесь, а не в каждой кнопке.
+    from app.handlers.menu import show_my_profile
 
-    balance_text = texts.BALANCE_INFO.format(balance=texts.format_price(db_user.balance_kopeks))
-
-    reply_markup = get_balance_keyboard(db_user.language)
-
-    try:
-        if callback.message and callback.message.text:
-            await callback.message.edit_text(balance_text, reply_markup=reply_markup)
-        elif callback.message and callback.message.caption:
-            await callback.message.edit_caption(balance_text, reply_markup=reply_markup)
-        else:
-            await callback.message.answer(balance_text, reply_markup=reply_markup)
-    except TelegramBadRequest as error:
-        logger.warning('Failed to edit balance message, sending a new one instead', error=error)
-        await callback.message.answer(balance_text, reply_markup=reply_markup)
-    await callback.answer()
+    await show_my_profile(callback, db_user, db, state)
 
 
 @error_handler

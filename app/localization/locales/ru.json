@@ -2313,5 +2313,17 @@
   "CASHERA_RECURRING_PAY_BUTTON": "💳 Подтвердить",
   "CASHERA_RECURRING_CANCEL_BUTTON": "🛑 Отключить автопродление Cashera",
   "CASHERA_RECURRING_MENU_BUTTON": "⚡ Автопродление через Cashera",
-  "CASHERA_RECURRING_CANCELLED": "✅ Автопродление Cashera отключено"
+  "CASHERA_RECURRING_CANCELLED": "✅ Автопродление Cashera отключено",
+  "MAIN_MENU_PAY_SUBSCRIPTION": "💎 Оплатить подписку",
+  "MAIN_MENU_CONNECT_VPN": "🔌 Подключить VPN",
+  "MAIN_MENU_TRIAL_PERIOD": "🎁 Пробный период",
+  "MAIN_MENU_MY_PROFILE": "👤 Мой профиль",
+  "MAIN_MENU_INVITE_FRIEND": "🤝 Пригласить друга",
+  "MY_PROFILE_HEADER": "👤 <b>Мой профиль</b>",
+  "MY_PROFILE_NAME": "📝 Имя: <b>{name}</b>",
+  "MY_PROFILE_ID": "🆔 ID: <code>{id}</code>",
+  "MY_PROFILE_JOINED": "📅 В сервисе с: {date}",
+  "MY_PROFILE_BALANCE": "💰 Баланс: <b>{balance}</b>",
+  "MY_PROFILE_MY_SUBSCRIPTIONS": "📋 Мои подписки",
+  "MY_PROFILE_NO_SUBSCRIPTION": "📦 У вас пока нет подписки."
 }
