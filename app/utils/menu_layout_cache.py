@@ -39,6 +39,8 @@ VALID_MAX_PER_ROW = frozenset({1, 2, 3})
 VALID_CUSTOM_BUTTON_STYLES = frozenset({'primary', 'success', 'danger', 'default'})
 
 DEFAULT_MENU_LAYOUT: dict[str, object] = {
+    # «Личный кабинет» (мини-приложение). Без адреса кабинета кнопка не рисуется.
+    'row_0': {'id': 'row_0', 'buttons': ['home'], 'max_per_row': 1},
     'row_1': {'id': 'row_1', 'buttons': ['buy_subscription'], 'max_per_row': 1},
     'row_2': {'id': 'row_2', 'buttons': ['connect'], 'max_per_row': 1},
     'row_3': {'id': 'row_3', 'buttons': ['trial'], 'max_per_row': 1},

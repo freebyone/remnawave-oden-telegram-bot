@@ -396,8 +396,9 @@ def _build_cabinet_main_menu_keyboard(
         *,
         style: str | None = None,
         icon_custom_emoji_id: str | None = None,
+        url_override: str | None = None,
     ) -> InlineKeyboardButton:
-        url = build_cabinet_url(path)
+        url = url_override or build_cabinet_url(path)
 
         section = CALLBACK_TO_SECTION.get(callback_fallback)
         section_cfg = cached_styles.get(section or '', {}) if section else {}
@@ -489,16 +490,23 @@ def _build_cabinet_main_menu_keyboard(
                 case 'home':
                     if not section_cfg.get('enabled', True):
                         continue
-                    # Эта кнопка только открывает корень веб-кабинета — без
-                    # MINIAPP_CUSTOM_URL ей нечего делать, и показывать
-                    # кнопку, которая всегда отвечает «кабинет недоступен»,
-                    # хуже, чем просто её не рисовать.
-                    if not build_cabinet_url('/'):
+                    # Эта кнопка только открывает корень веб-кабинета — без его
+                    # адреса ей нечего делать, и показывать кнопку, которая всегда
+                    # отвечает «кабинет недоступен», хуже, чем просто её не рисовать.
+                    #
+                    # Oden: кабинет открывается только этой кнопкой (и кнопкой меню
+                    # чата), остальное меню остаётся в боте. Поэтому адрес можно взять
+                    # из MENU_BUTTON_WEBAPP_URL, не задавая MINIAPP_CUSTOM_URL, — тот
+                    # превратил бы в ссылки на кабинет все кнопки бота.
+                    cabinet_root = build_cabinet_url('/') or (settings.MENU_BUTTON_WEBAPP_URL or '').strip()
+                    if not cabinet_root:
                         continue
                     home_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
                         'MENU_PROFILE', '👤 Личный кабинет'
                     )
-                    row_buttons.append(_cabinet_button(home_text, '/', 'menu_profile_unavailable'))
+                    row_buttons.append(
+                        _cabinet_button(home_text, '/', 'menu_profile_unavailable', url_override=cabinet_root)
+                    )
 
                 case 'subscription':
                     if not section_cfg.get('enabled', True):
