@@ -266,6 +266,12 @@ async def show_balance_menu(
     # экран баланса создавал петлю «Пополнить» → «Назад» (сюда) → «Пополнить».
     # На menu_balance ведут «Назад» всех платёжных провайдеров, истории и
     # привязанных карт, поэтому перенаправляем здесь, а не в каждой кнопке.
+    # Если человек ушёл в оплату с экрана покупки подписки — возвращаем туда.
+    from app.handlers.subscription.purchase_return import return_to_purchase
+
+    if await return_to_purchase(callback, db_user, db, state):
+        return
+
     from app.handlers.menu import show_my_profile
 
     await show_my_profile(callback, db_user, db, state)
@@ -349,6 +355,16 @@ async def handle_balance_history_pagination(callback: types.CallbackQuery, db_us
 async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext):
     from app.config import settings
     from app.utils.payment_utils import get_payment_methods_text
+
+    # «Назад» из окна оплаты провайдера ведёт сюда. Если оплату начали с экрана
+    # покупки подписки — возвращаем на него (там способы оплаты недостающей суммы
+    # и «Назад» к выбору срока). Кнопки «Пополнить баланс» внутри покупки шлют
+    # balance_topup:fresh — им нужен именно список пополнения.
+    if callback.data == 'balance_topup':
+        from app.handlers.subscription.purchase_return import return_to_purchase
+
+        if await return_to_purchase(callback, db_user, db, state):
+            return
 
     texts = get_texts(db_user.language)
 
@@ -744,7 +760,7 @@ def register_balance_handlers(dp: Dispatcher):
 
     dp.callback_query.register(handle_balance_history_pagination, F.data.startswith('balance_history_page_'))
 
-    dp.callback_query.register(show_payment_methods, F.data == 'balance_topup')
+    dp.callback_query.register(show_payment_methods, F.data.in_({'balance_topup', 'balance_topup:fresh'}))
 
     from .stars import start_stars_payment
 

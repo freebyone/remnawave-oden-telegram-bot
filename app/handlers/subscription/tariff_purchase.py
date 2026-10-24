@@ -23,6 +23,7 @@ from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
 from app.database.database import AsyncSessionLocal
 from app.database.models import Tariff, Transaction, TransactionType, User
+from app.handlers.subscription.purchase_return import remember_purchase_screen
 from app.localization.texts import Texts, get_texts
 from app.services.admin_notification_service import AdminNotificationService
 from app.services.panel_sync import should_create_panel_account
@@ -427,7 +428,7 @@ def get_tariff_insufficient_balance_keyboard(
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
+            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup:fresh')],
             *sbp_rows,
             [back_button],
         ]
@@ -480,7 +481,7 @@ def get_tariff_extend_insufficient_balance_keyboard(
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
+            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup:fresh')],
             [back_button],
         ]
     )
@@ -605,7 +606,7 @@ def get_daily_tariff_insufficient_balance_keyboard(
     texts = get_texts(language)
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
+            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup:fresh')],
             *_sbp_purchase_rows(tariff_id, texts),
             [InlineKeyboardButton(text=texts.BACK, callback_data=back_callback)],
         ]
@@ -1795,6 +1796,8 @@ async def select_tariff_period(
             ),
             parse_mode='HTML',
         )
+        # «Назад» из окна оплаты вернёт сюда, а не в профиль (см. purchase_return).
+        await remember_purchase_screen(db_user.id, callback.data)
 
     # Pin the resolved subscription_id in FSM (resolved above, before pricing).
     # Without this, ``confirm_tariff_purchase`` re-queries by
@@ -2985,6 +2988,8 @@ async def select_tariff_extend_period(
             ),
             parse_mode='HTML',
         )
+        # «Назад» из окна оплаты вернёт сюда, а не в профиль (см. purchase_return).
+        await remember_purchase_screen(db_user.id, callback.data)
 
     await state.update_data(
         extend_tariff_id=tariff_id,
@@ -3381,7 +3386,7 @@ def get_tariff_switch_insufficient_balance_keyboard(
     texts = get_texts(language)
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
+            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup:fresh')],
             [InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_sw_select:{tariff_id}')],
         ]
     )
@@ -3652,7 +3657,7 @@ async def select_tariff_switch(
                     inline_keyboard=[
                         [
                             InlineKeyboardButton(
-                                text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup'
+                                text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup:fresh'
                             )
                         ],
                         [InlineKeyboardButton(text=texts.BACK, callback_data='tariff_switch')],
@@ -4549,7 +4554,7 @@ def get_instant_switch_insufficient_balance_keyboard(
     texts = get_texts(language)
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
+            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup:fresh')],
             [InlineKeyboardButton(text=texts.BACK, callback_data='instant_switch')],
         ]
     )

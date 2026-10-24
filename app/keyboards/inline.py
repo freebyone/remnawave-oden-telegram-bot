@@ -3198,7 +3198,7 @@ def get_device_selection_keyboard(
     # «Подключить VPN» — пункт главного меню, поэтому Назад возвращает туда же,
     # откуда пришли. Раньше вело в менеджмент подписки (sm:{id}), а затем в её
     # список — оба экрана к задаче «подключить устройство» отношения не имеют.
-    back_cb = 'back_to_menu' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
+    back_cb = 'back_to_menu'
 
     keyboard: list[list[InlineKeyboardButton]] = []
 
@@ -3250,10 +3250,13 @@ def get_connection_guide_keyboard(
     sub_id: int | None = None,
 ) -> InlineKeyboardMarkup:
     texts = get_texts(language)
-    # Та же логика, что и в get_device_selection_keyboard: гайд по устройству
-    # открыт из главного меню, поэтому и возврат — в главное меню, а не в
-    # менеджмент подписки или её список.
-    back_cb = 'back_to_menu' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
+    # Инструкция открыта с экрана «Подключить VPN» (выбор устройства), поэтому
+    # «Назад» возвращает туда, а уже оттуда — в главное меню. Раньше здесь были
+    # «Выбрать другое устройство» и «К подписке» (вела в главное меню) — две
+    # кнопки «назад» в разные места путали.
+    back_cb = (
+        f'subscription_connect:{sub_id}' if sub_id and settings.is_multi_tariff_enabled() else 'subscription_connect'
+    )
 
     keyboard: list[list[InlineKeyboardButton]] = []
 
@@ -3366,20 +3369,7 @@ def get_connection_guide_keyboard(
             ]
         )
 
-    _sc_cb = (
-        f'subscription_connect:{sub_id}' if sub_id and settings.is_multi_tariff_enabled() else 'subscription_connect'
-    )
-    keyboard.extend(
-        [
-            [
-                InlineKeyboardButton(
-                    text=texts.t('CHOOSE_ANOTHER_DEVICE', '📱 Выбрать другое устройство'),
-                    callback_data=_sc_cb,
-                )
-            ],
-            [InlineKeyboardButton(text=texts.t('BACK_TO_SUBSCRIPTION', '⬅️ К подписке'), callback_data=back_cb)],
-        ]
-    )
+    keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data=back_cb)])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -3395,21 +3385,8 @@ def get_app_selection_keyboard(device_type: str, apps: list, language: str = DEF
 
         keyboard.append([InlineKeyboardButton(text=app_name, callback_data=f'app_{device_type}_{app["id"]}')])
 
-    keyboard.extend(
-        [
-            [
-                InlineKeyboardButton(
-                    text=texts.t('CHOOSE_ANOTHER_DEVICE', '📱 Выбрать другое устройство'),
-                    callback_data='subscription_connect',
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=texts.t('BACK_TO_SUBSCRIPTION', '⬅️ К подписке'), callback_data='menu_subscription'
-                )
-            ],
-        ]
-    )
+    # Список «Другие приложения» открыт из инструкции этого устройства — туда и назад.
+    keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data=f'device_guide_{device_type}')])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 

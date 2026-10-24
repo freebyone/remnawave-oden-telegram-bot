@@ -430,6 +430,12 @@ async def show_my_profile(
         )
         return
 
+    # Человек сам ушёл в профиль — незавершённая покупка больше не перехватывает
+    # «Назад» из пополнения (см. purchase_return).
+    from app.handlers.subscription.purchase_return import forget_purchase_screen
+
+    await forget_purchase_screen(db_user.id)
+
     texts = get_texts(db_user.language)
 
     display_name = db_user.first_name or (f'@{db_user.username}' if db_user.username else None) or str(
@@ -1361,6 +1367,9 @@ async def handle_back_to_menu(callback: types.CallbackQuery, state: FSMContext, 
         return
 
     await state.clear()
+    from app.handlers.subscription.purchase_return import forget_purchase_screen
+
+    await forget_purchase_screen(db_user.id)
 
     texts = get_texts(db_user.language)
 
