@@ -9,13 +9,17 @@ def _callbacks(keyboard):
     return [button.callback_data for row in keyboard.inline_keyboard for button in row]
 
 
+# «Пополнить баланс» внутри покупки шлёт balance_topup:fresh: обычный balance_topup
+# — это «Назад» из окна оплаты, он возвращает на экран покупки (purchase_return).
+
+
 def test_classic_topup_when_autopurchase_disabled(monkeypatch):
     monkeypatch.setattr(settings, 'AUTO_PURCHASE_AFTER_TOPUP_ENABLED', False)
 
     keyboard = get_tariff_insufficient_balance_keyboard(7, 30, 'ru', missing_kopeks=50000)
     callbacks = _callbacks(keyboard)
 
-    assert 'balance_topup' in callbacks
+    assert 'balance_topup:fresh' in callbacks
     assert not any((c or '').startswith('topup_amount|') for c in callbacks)
     assert 'tariff_select:7' in callbacks
 
@@ -29,7 +33,7 @@ def test_inlines_prefilled_payment_when_autopurchase_enabled(monkeypatch):
 
     # прямая оплата ровно недостающей суммой, без промежуточного «Пополнить баланс»
     assert 'topup_amount|stars|50000' in callbacks
-    assert 'balance_topup' not in callbacks
+    assert 'balance_topup:fresh' not in callbacks
     # возврат ведёт к выбору тарифа
     assert 'tariff_select:7' in callbacks
 
@@ -40,7 +44,7 @@ def test_classic_topup_when_missing_zero(monkeypatch):
 
     keyboard = get_tariff_insufficient_balance_keyboard(7, 30, 'ru', missing_kopeks=0)
 
-    assert 'balance_topup' in _callbacks(keyboard)
+    assert 'balance_topup:fresh' in _callbacks(keyboard)
 
 
 def test_sbp_purchase_offered_on_insufficient_balance(monkeypatch):
@@ -95,7 +99,7 @@ def test_falls_back_to_topup_without_direct_payment_methods(monkeypatch):
 
     keyboard = get_tariff_insufficient_balance_keyboard(7, 30, 'ru', missing_kopeks=50000)
 
-    assert 'balance_topup' in _callbacks(keyboard)
+    assert 'balance_topup:fresh' in _callbacks(keyboard)
 
 
 def test_extend_inlines_prefilled_payment_when_autopurchase_enabled(monkeypatch):
@@ -106,7 +110,7 @@ def test_extend_inlines_prefilled_payment_when_autopurchase_enabled(monkeypatch)
     callbacks = _callbacks(keyboard)
 
     assert 'topup_amount|stars|50000' in callbacks
-    assert 'balance_topup' not in callbacks
+    assert 'balance_topup:fresh' not in callbacks
     assert 'subscription_extend' in callbacks
     assert not any((c or '').startswith('tariff_select:') for c in callbacks)
     assert not any((c or '').startswith('tariff_sbp:') for c in callbacks)
@@ -119,7 +123,7 @@ def test_extend_classic_topup_when_autopurchase_disabled(monkeypatch):
     keyboard = get_tariff_extend_insufficient_balance_keyboard(7, 42, 30, 'ru', missing_kopeks=50000)
     callbacks = _callbacks(keyboard)
 
-    assert 'balance_topup' in callbacks
+    assert 'balance_topup:fresh' in callbacks
     assert 'subscription_extend' in callbacks
     assert not any((c or '').startswith('topup_amount|') for c in callbacks)
 
@@ -197,6 +201,6 @@ def test_extend_falls_back_to_topup_without_direct_payment_methods(monkeypatch):
 
     callbacks = _callbacks(get_tariff_extend_insufficient_balance_keyboard(7, 42, 30, 'ru', missing_kopeks=50000))
 
-    assert 'balance_topup' in callbacks, 'без прямых способов должен остаться классический переход'
+    assert 'balance_topup:fresh' in callbacks, 'без прямых способов должен остаться классический переход'
     assert 'menu_balance' not in callbacks, 'чужая навигация не должна попадать на экран продления'
     assert 'topup_support' not in callbacks

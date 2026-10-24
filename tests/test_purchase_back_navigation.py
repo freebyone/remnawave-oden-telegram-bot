@@ -61,12 +61,9 @@ async def test_only_purchase_screens_are_remembered(fake_redis: FakeRedis) -> No
 async def test_return_to_purchase_redraws_period_screen(
     fake_redis: FakeRedis, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import app.handlers.subscription.tariff_purchase as tp
-
     period = AsyncMock()
     extend = AsyncMock()
-    monkeypatch.setattr(tp, 'select_tariff_period', period)
-    monkeypatch.setattr(tp, 'select_tariff_extend_period', extend)
+    monkeypatch.setattr(pr, '_screens', {'tariff_period:': period, 'tariff_extend:': extend})
 
     callback = MagicMock()
     callback.model_copy = lambda update: MagicMock(data=update['data'])
@@ -81,6 +78,16 @@ async def test_return_to_purchase_redraws_period_screen(
     await pr.remember_purchase_screen(7, 'tariff_extend:1:5:90')
     assert await pr.return_to_purchase(callback, user, None, None) is True
     assert extend.await_args.args[0].data == 'tariff_extend:1:5:90'
+
+
+def test_purchase_module_registers_its_screens() -> None:
+    from aiogram import Dispatcher
+
+    from app.handlers.subscription import tariff_purchase
+
+    tariff_purchase.register_tariff_purchase_handlers(Dispatcher())
+    assert pr._screens['tariff_period:'] is tariff_purchase.select_tariff_period
+    assert pr._screens['tariff_extend:'] is tariff_purchase.select_tariff_extend_period
 
 
 def _callbacks(kb) -> list[str]:

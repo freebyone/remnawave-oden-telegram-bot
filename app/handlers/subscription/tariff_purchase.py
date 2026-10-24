@@ -23,7 +23,7 @@ from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
 from app.database.database import AsyncSessionLocal
 from app.database.models import Tariff, Transaction, TransactionType, User
-from app.handlers.subscription.purchase_return import remember_purchase_screen
+from app.handlers.subscription.purchase_return import register_purchase_screen, remember_purchase_screen
 from app.localization.texts import Texts, get_texts
 from app.services.admin_notification_service import AdminNotificationService
 from app.services.panel_sync import should_create_panel_account
@@ -5744,6 +5744,9 @@ def register_tariff_purchase_handlers(dp: Dispatcher):
 
     # Выбор периода
     dp.callback_query.register(select_tariff_period, F.data.startswith('tariff_period:'))
+    # Куда возвращает «Назад» из окна оплаты (см. purchase_return).
+    register_purchase_screen('tariff_period:', select_tariff_period)
+    register_purchase_screen('tariff_extend:', select_tariff_extend_period)
 
     # Подтверждение покупки
     dp.callback_query.register(confirm_tariff_purchase, F.data.startswith('tariff_confirm:'))

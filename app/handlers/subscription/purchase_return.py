@@ -15,6 +15,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+from typing import Any
+
 import structlog
 from aiogram import types
 
@@ -29,7 +32,15 @@ _KEY = 'purchase_return:{user_id}'
 # Экраны, на которые умеем вернуться (callback_data, который их рисует).
 _SUPPORTED_PREFIXES = ('tariff_period:', 'tariff_extend:')
 
+# Обработчики экранов регистрирует сам tariff_purchase (register_purchase_screen):
+# импорт отсюда в tariff_purchase замкнул бы кольцо меню → покупка → платежи.
+_screens: dict[str, Callable[..., Awaitable[Any]]] = {}
+
 _client = None
+
+
+def register_purchase_screen(prefix: str, handler: Callable[..., Awaitable[Any]]) -> None:
+    _screens[prefix] = handler
 
 
 def _redis():
@@ -89,12 +100,10 @@ async def return_to_purchase(callback: types.CallbackQuery, db_user, db, state) 
     target = await pending_purchase_screen(db_user.id)
     if not target:
         return False
-
-    from app.handlers.subscription.tariff_purchase import select_tariff_extend_period, select_tariff_period
+    handler = next((h for prefix, h in _screens.items() if target.startswith(prefix)), None)
+    if handler is None:
+        return False
 
     redirected = callback.model_copy(update={'data': target})
-    if target.startswith('tariff_period:'):
-        await select_tariff_period(redirected, db_user, db, state)
-    else:
-        await select_tariff_extend_period(redirected, db_user, db, state)
+    await handler(redirected, db_user, db, state)
     return True
