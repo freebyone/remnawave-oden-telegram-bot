@@ -852,6 +852,29 @@ async def show_tariffs_list(
     texts = get_texts(db_user.language)
     await state.clear()
 
+    # Oden: у кого уже есть подписка — сначала выбор «изменить / редактировать / подарить».
+    if callback.data != 'buy_change' and settings.is_multi_tariff_enabled():
+        from app.database.crud.subscription import get_all_subscriptions_by_user_id
+
+        if await get_all_subscriptions_by_user_id(db, db_user.id):
+            await callback.message.edit_text(
+                '💎 <b>Ваша подписка</b>\n\n'
+                '• <b>Изменить подписку</b> — перейти на другой тариф\n'
+                '• <b>Редактировать подписку</b> — продлить, автоплатёж, устройства\n'
+                '• <b>Подарить другу</b> — подписка в подарок и реферальная программа',
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [InlineKeyboardButton(text='🔁 Изменить подписку', callback_data='buy_change')],
+                        [InlineKeyboardButton(text='⚙️ Редактировать подписку', callback_data='buy_edit')],
+                        [InlineKeyboardButton(text='🎁 Подарить другу', callback_data='gift_from_menu')],
+                        [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
+                    ]
+                ),
+                parse_mode='HTML',
+            )
+            await callback.answer()
+            return
+
     # Получаем доступные тарифы
     promo_group_id = getattr(db_user, 'promo_group_id', None)
     tariffs = await get_tariffs_for_user(db, promo_group_id)
@@ -5748,11 +5771,36 @@ async def purchase_tariff_with_sbp(
     await callback.answer()
 
 
+async def edit_my_subscription(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
+    """«Редактировать подписку»: одна подписка — сразу её управление, несколько — список."""
+    from app.database.crud.subscription import get_all_subscriptions_by_user_id
+
+    from .my_subscriptions import show_my_subscriptions, show_subscription_detail
+
+    subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
+    if len(subscriptions) == 1:
+        target = callback.model_copy(update={'data': f'sm:{subscriptions[0].id}'})
+        await show_subscription_detail(target, db_user, db, state)
+        return
+    await show_my_subscriptions(callback, db_user, db, state)
+
+
 def register_tariff_purchase_handlers(dp: Dispatcher):
     """Регистрирует обработчики покупки по тарифам."""
     # Список тарифов (для режима tariffs)
     dp.callback_query.register(show_tariffs_list, F.data == 'tariff_list')
     dp.callback_query.register(show_tariffs_list, F.data == 'buy_subscription_tariffs')
+
+    # Oden: «Изменить подписку» — список тарифов; «Редактировать» — управление подпиской.
+    from app.utils.screen_banner import with_banner
+
+    dp.callback_query.register(with_banner('buy', show_tariffs_list), F.data == 'buy_change')
+    dp.callback_query.register(edit_my_subscription, F.data == 'buy_edit')
 
     # Выбор тарифа
     dp.callback_query.register(select_tariff, F.data.startswith('tariff_select:'))

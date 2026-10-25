@@ -552,6 +552,9 @@ async def _build_single_subscription_block(user: User, texts, db: AsyncSession) 
     return '<blockquote>' + '<br>'.join(lines) + '</blockquote>'
 
 
+_ODEN_WELCOME_EMOJI_ID = '5400231216425250475'
+
+
 async def build_main_menu_rich_html(user: User, texts, db: AsyncSession) -> str:
     """Собирает rich-HTML главного меню (контент, без клавиатуры)."""
     blocks: list[str] = []
@@ -560,12 +563,8 @@ async def build_main_menu_rich_html(user: User, texts, db: AsyncSession) -> str:
     if logo_url:
         blocks.append(f'<img src="{html.escape(logo_url, quote=True)}"/>')
 
-    # full_name подставляет username, когда имени нет (см. User.full_name), — только
-    # в этом случае показываем логин ссылкой на профиль, а не голым текстом.
-    username = getattr(user, 'username', None)
-    has_name = bool(getattr(user, 'first_name', None) or getattr(user, 'last_name', None))
-    user_name = format_username_link(username) if username and not has_name else html.escape(user.full_name or '')
-    blocks.append(f'<h4>👤 {user_name}</h4>')
+    # Oden: приветствие вместо никнейма, с анимированным 🪓.
+    blocks.append(f'<h4><tg-emoji emoji-id="{_ODEN_WELCOME_EMOJI_ID}">🪓</tg-emoji> Добро пожаловать в OdenVPN!</h4>')
     blocks.append('<hr/>')
 
     if settings.is_multi_tariff_enabled():
@@ -582,6 +581,16 @@ async def build_main_menu_rich_html(user: User, texts, db: AsyncSession) -> str:
         else:
             blocks.append(f'<h6>{_rich_text(heading)}</h6>')
             blocks.append(subscription_block)
+        # Oden: пробный закончился и ничего не оплачено — отдельное сообщение об этом.
+        if subscriptions and all(
+            getattr(sub, 'is_trial', False) and getattr(sub, 'actual_status', '') in ('expired', 'limited', 'disabled')
+            for sub in subscriptions
+        ):
+            blocks.append(
+                '<blockquote><b>⏳ Пробный период закончился</b><br>'
+                'Вы уже воспользовались пробным периодом — повторно он не выдаётся. '
+                'Оформите подписку, чтобы VPN снова заработал.</blockquote>'
+            )
     else:
         heading = texts.t('MAIN_MENU_RICH_SUBSCRIPTION_HEADING', '📱 Подписка')
         blocks.append(f'<h6>{_rich_text(heading)}</h6>')

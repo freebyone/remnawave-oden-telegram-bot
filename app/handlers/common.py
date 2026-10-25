@@ -80,11 +80,45 @@ async def handle_cancel(callback: types.CallbackQuery, state: FSMContext, db_use
     await callback.answer()
 
 
+async def _try_referral_code(message: types.Message, db_user: User, db: AsyncSession, code: str) -> bool:
+    """Oden: реферальный код, присланный обычным сообщением, привязывает пригласившего."""
+    from app.database.crud.user import get_user_by_referral_code
+
+    inviter = await get_user_by_referral_code(db, code)
+    if inviter is None or inviter.id == db_user.id:
+        return False
+    if db_user.referred_by_id:
+        await message.answer('ℹ️ Реферальный код уже был применён раньше.')
+        return True
+    db_user.referred_by_id = inviter.id
+    await db.commit()
+    await message.answer(
+        '✅ Реферальный код принят!\n\nПополните баланс от 100 ₽ — и на него придёт бонус 100 ₽.'
+    )
+    return True
+
+
 async def handle_unknown_message(
     message: types.Message,
     db_user: User | None = None,
+    state: FSMContext | None = None,
+    db: AsyncSession | None = None,
 ):
     texts = get_texts(db_user.language if db_user else 'ru')
+
+    # Oden: промокод или реферальный код можно просто прислать сообщением —
+    # без отдельной кнопки «Промокод».
+    code = (message.text or '').strip()
+    if db_user and db is not None and state is not None and code and ' ' not in code and len(code) <= 64:
+        if await _try_referral_code(message, db_user, db, code):
+            return
+        from app.utils.promo_rate_limiter import validate_promo_format
+
+        if validate_promo_format(code):
+            from app.handlers.promocode import process_promocode
+
+            await process_promocode(message, db_user, state, db)
+            return
 
     await message.answer(
         texts.t(

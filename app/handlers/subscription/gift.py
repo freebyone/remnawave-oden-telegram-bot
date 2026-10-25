@@ -83,6 +83,8 @@ def _render_tariff_catalog(db_user: User, offers: list[GiftTariffOffer]) -> tupl
         tariff_label = texts.t('GIFT_TARIFF_CHOICE_BUTTON', '{tariff_name}').format(tariff_name=offer.tariff_name)
         buttons.append([InlineKeyboardButton(text=tariff_label, callback_data=f'gift_tariff:{offer.tariff_id}')])
 
+    # Oden: приглашение друзей — рядом с подарком.
+    buttons.append([InlineKeyboardButton(text='🤝 Реферальная программа', callback_data='oden_referral')])
     buttons.append(
         [
             InlineKeyboardButton(
@@ -1565,8 +1567,43 @@ async def handle_gift_my_back(
 # ── Handler Registration ───────────────────────────────────────────────────
 
 
+async def handle_oden_referral(callback: types.CallbackQuery, db_user: User) -> None:
+    """Oden: коротко об условиях рефералки, ссылка для друзей и путь в партнёры."""
+    import html
+
+    from app.utils.miniapp_buttons import build_cabinet_url
+
+    link = settings.get_bot_referral_link(db_user.referral_code) if db_user.referral_code else ''
+    minimum = settings.format_price(settings.REFERRAL_WITHDRAWAL_MIN_AMOUNT_KOPEKS)
+    text = (
+        '🤝 <b>Реферальная программа</b>\n\n'
+        'Приглашайте друзей по своей ссылке:\n'
+        f'• друг пополнит баланс от {settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)} — '
+        f'вам {settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)} на баланс;\n'
+        f'• дальше с каждого его пополнения — {settings.REFERRAL_COMMISSION_PERCENT}%;\n'
+        f'• накопленное на реферальном балансе можно вывести от {minimum}.\n\n'
+        'Друг может просто прислать боту ваш код — его тоже засчитаем.\n'
+    )
+    if link:
+        text += f'\n🔗 Ваша ссылка:\n<code>{html.escape(link)}</code>\n'
+        text += f'🏷 Ваш код: <code>{html.escape(db_user.referral_code)}</code>\n'
+    partner_url = build_cabinet_url('/referral/partner/apply') or (
+        f'{settings.MENU_BUTTON_WEBAPP_URL.rstrip("/")}/referral/partner/apply' if settings.MENU_BUTTON_WEBAPP_URL else ''
+    )
+    text += '\n💼 Хотите повышенный процент? Станьте партнёром — подайте заявку в личном кабинете.'
+    buttons = []
+    if partner_url:
+        buttons.append(
+            [InlineKeyboardButton(text='💼 Стать партнёром', web_app=types.WebAppInfo(url=partner_url))]
+        )
+    buttons.append([InlineKeyboardButton(text='◀️ Назад', callback_data='gift_from_menu')])
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode='HTML')
+    await callback.answer()
+
+
 def register_gift_handlers(dp: Dispatcher) -> None:
     """Register all gift purchase, navigation, and code activation handlers."""
+    dp.callback_query.register(handle_oden_referral, F.data == 'oden_referral')
     from app.utils.screen_banner import with_banner
 
     dp.callback_query.register(

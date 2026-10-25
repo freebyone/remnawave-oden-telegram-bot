@@ -369,6 +369,7 @@ def _build_cabinet_main_menu_keyboard(
     balance_kopeks: int = 0,
     has_had_paid_subscription: bool = False,
     has_active_subscription: bool = False,
+    trial_used: bool = False,
 ) -> InlineKeyboardMarkup:
     """Build the main-menu keyboard for Cabinet mode.
 
@@ -547,10 +548,16 @@ def _build_cabinet_main_menu_keyboard(
                     buy_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
                         'MAIN_MENU_PAY_SUBSCRIPTION', '💎 Оплатить подписку'
                     )
+                    # Oden: оплаченная действующая подписка — «Продлить подписку».
+                    if has_active_subscription and has_had_paid_subscription:
+                        buy_text = '💎 Продлить подписку'
                     row_buttons.append(_cabinet_button(buy_text, '/subscription', 'menu_buy'))
 
                 case 'connect':
                     if not section_cfg.get('enabled', True):
+                        continue
+                    # Oden: подключать нечего, пока нет действующей подписки (триал или оплата).
+                    if not has_active_subscription:
                         continue
                     connect_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
                         'MAIN_MENU_CONNECT_VPN', '🔌 Подключить VPN'
@@ -566,6 +573,7 @@ def _build_cabinet_main_menu_keyboard(
                     show_trial = (
                         not has_had_paid_subscription
                         and not has_active_subscription
+                        and not trial_used
                         and settings.TRIAL_DURATION_DAYS > 0
                         and settings.TRIAL_DISABLED_FOR != 'all'
                     )
@@ -678,6 +686,8 @@ def get_main_menu_keyboard(
             balance_kopeks=balance_kopeks,
             has_had_paid_subscription=has_had_paid_subscription,
             has_active_subscription=has_active_subscription,
+            # Oden: была подписка (хоть истёкший триал) — пробный уже использован.
+            trial_used=subscription is not None,
         )
 
     if settings.DEBUG:

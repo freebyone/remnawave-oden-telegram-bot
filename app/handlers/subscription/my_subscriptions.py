@@ -125,10 +125,15 @@ def _build_subscriptions_keyboard(
     return types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def _build_subscription_detail_keyboard(sub_id: int, sub=None) -> types.InlineKeyboardMarkup:
+def _build_subscription_detail_keyboard(sub_id: int, sub=None, *, single: bool = False) -> types.InlineKeyboardMarkup:
     """Build keyboard for the standalone single-subscription management screen."""
-    buttons = build_subscription_action_rows(sub_id, sub)
-    buttons.append([types.InlineKeyboardButton(text='◀️ К списку подписок', callback_data='my_subscriptions')])
+    # Oden: «Редактировать подписку» — продлить, автоплатёж, устройства (и удаление истёкшей).
+    keep = (f'se:{sub_id}', 'subscription_autopay', f'sd:{sub_id}', f'sub_del:{sub_id}')
+    buttons = [row for row in build_subscription_action_rows(sub_id, sub) if row[0].callback_data in keep]
+    if single:
+        buttons.append([types.InlineKeyboardButton(text='◀️ Назад', callback_data='menu_buy')])
+    else:
+        buttons.append([types.InlineKeyboardButton(text='◀️ К списку подписок', callback_data='my_subscriptions')])
 
     return types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -203,7 +208,8 @@ async def show_subscription_detail(
     await state.update_data(active_subscription_id=sub_id)
 
     text = format_subscription_detail_text(subscription)
-    keyboard = _build_subscription_detail_keyboard(sub_id, sub=subscription)
+    single = len(await get_all_subscriptions_by_user_id(db, db_user.id)) == 1
+    keyboard = _build_subscription_detail_keyboard(sub_id, sub=subscription, single=single)
 
     if callback.message:
         await callback.message.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
