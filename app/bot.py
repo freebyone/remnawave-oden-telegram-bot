@@ -184,6 +184,10 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
     dp.callback_query.middleware(display_name_restriction)
     dp.message.middleware(SubscriptionStatusMiddleware())
     dp.callback_query.middleware(SubscriptionStatusMiddleware())
+    # Oden: баннер раздела (Оплата, Продление, Редактирование, Подарок, Подключение) вместо логотипа.
+    from app.utils.screen_banner import ScreenBannerMiddleware
+
+    dp.callback_query.middleware(ScreenBannerMiddleware())
     dp.pre_checkout_query.middleware(SubscriptionStatusMiddleware())
     # Первым: узкий фильтр (админ, личка, вне диалога, есть custom emoji) —
     # ID анимированных эмодзи для иконок кнопок меню.
@@ -305,6 +309,16 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
             await load_menu_layout_cache()
         except Exception as e:
             logger.warning('Failed to load menu layout cache', error=e)
+
+    # Oden: цена доп. устройства от семейного тарифа (на случай правки цен в обход админки).
+    try:
+        from app.database.crud.tariff import sync_oden_device_prices
+        from app.database.database import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as session:
+            await sync_oden_device_prices(session)
+    except Exception as e:
+        logger.warning('Failed to sync Oden device prices', error=e)
 
     try:
         from app.services.remnawave_retry_queue import remnawave_retry_queue

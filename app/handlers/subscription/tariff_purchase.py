@@ -856,15 +856,28 @@ async def show_tariffs_list(
     if callback.data != 'buy_change' and settings.is_multi_tariff_enabled():
         from app.database.crud.subscription import get_all_subscriptions_by_user_id
 
-        if await get_all_subscriptions_by_user_id(db, db_user.id):
+        user_subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
+        if user_subscriptions:
+            # Только пробная — «Купить подписку» (красная), иначе «Сменить тариф».
+            only_trial = all(getattr(sub, 'is_trial', False) for sub in user_subscriptions)
+            change_button = (
+                InlineKeyboardButton(text='💎 Купить подписку', callback_data='buy_change', style='danger')
+                if only_trial
+                else InlineKeyboardButton(text='🔁 Сменить тариф', callback_data='buy_change')
+            )
+            change_hint = (
+                '• <b>Купить подписку</b> — выбрать тариф и оплатить\n'
+                if only_trial
+                else '• <b>Сменить тариф</b> — перейти на другой тариф\n'
+            )
             await callback.message.edit_text(
                 '💎 <b>Ваша подписка</b>\n\n'
-                '• <b>Изменить подписку</b> — перейти на другой тариф\n'
+                f'{change_hint}'
                 '• <b>Редактировать подписку</b> — продлить, автоплатёж, устройства\n'
                 '• <b>Подарить другу</b> — подписка в подарок и реферальная программа',
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[
-                        [InlineKeyboardButton(text='🔁 Изменить подписку', callback_data='buy_change')],
+                        [change_button],
                         [InlineKeyboardButton(text='⚙️ Редактировать подписку', callback_data='buy_edit')],
                         [InlineKeyboardButton(text='🎁 Подарить другу', callback_data='gift_from_menu')],
                         [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
@@ -935,7 +948,8 @@ async def show_tariffs_list(
             tariffs,
             db_user.language,
             purchased_tariff_ids,
-            show_my_subscriptions=settings.is_multi_tariff_enabled() and await _has_subscriptions(db, db_user.id),
+            # «Мои подписки» в списке тарифов больше не нужны: управление — в «Редактировать подписку».
+            show_my_subscriptions=False,
         ),
     )
 

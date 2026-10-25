@@ -125,6 +125,28 @@ def _build_subscriptions_keyboard(
     return types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
+def _oden_edit_text(subscription) -> str:
+    """«Редактировать подписку»: тип, статус, срок, устройства, трафик и что делают кнопки."""
+    tariff_name = subscription.tariff.name if subscription.tariff else 'Подписка'
+    kind = 'пробная' if subscription.is_trial else 'платная'
+    if subscription.traffic_limit_gb == 0:
+        traffic = 'безлимит'
+    else:
+        used = f'{subscription.traffic_used_gb:.1f}' if subscription.traffic_used_gb else '0'
+        traffic = f'{used} из {subscription.traffic_limit_gb} ГБ'
+    end_date = format_local_datetime(subscription.end_date, '%d.%m.%Y') if subscription.end_date else '—'
+    return (
+        f'⚙️ <b>{tariff_name}</b> · {kind}\n\n'
+        f'Статус: {subscription.status_display}\n'
+        f'📅 Действует до: <b>{end_date}</b>\n'
+        f'📱 Устройств: <b>{Texts.format_device_limit(subscription.device_limit)}</b>\n'
+        f'📊 Трафик: {traffic}\n\n'
+        '🔄 <b>Продлить</b> — оплатить ещё месяц или больше\n'
+        '💳 <b>Автоплатёж</b> — продлевать подписку автоматически\n'
+        '📱 <b>Устройства</b> — докупить места и отключить старые устройства'
+    )
+
+
 def _build_subscription_detail_keyboard(sub_id: int, sub=None, *, single: bool = False) -> types.InlineKeyboardMarkup:
     """Build keyboard for the standalone single-subscription management screen."""
     # Oden: «Редактировать подписку» — продлить, автоплатёж, устройства (и удаление истёкшей).
@@ -153,8 +175,13 @@ async def show_my_subscriptions(
     gift_enabled = True
     subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
 
-    # Oden (25.10): список показываем и с одной подпиской — отсюда продление и
-    # докупка устройств уже оплаченной подписки («Оплатить подписку» → «Мои подписки»).
+    # Oden: с одной подпиской списка нет — сразу «Редактировать подписку».
+    # Сюда ведут «Назад» с продления, устройств, автоплатежа.
+    if len(subscriptions) == 1 and state is not None:
+        target = callback.model_copy(update={'data': f'sm:{subscriptions[0].id}'})
+        await show_subscription_detail(target, db_user, db, state)
+        return
+
     if not subscriptions:
         text = '📋 <b>Мои подписки</b>\n\nУ вас нет подписок.'
         buttons = [
@@ -207,7 +234,7 @@ async def show_subscription_detail(
     # (e.g. 'subscription_autopay') can resolve the right subscription via FSM.
     await state.update_data(active_subscription_id=sub_id)
 
-    text = format_subscription_detail_text(subscription)
+    text = _oden_edit_text(subscription)
     single = len(await get_all_subscriptions_by_user_id(db, db_user.id)) == 1
     keyboard = _build_subscription_detail_keyboard(sub_id, sub=subscription, single=single)
 

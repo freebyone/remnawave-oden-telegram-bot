@@ -3,6 +3,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.database.models import PromoGroup, Subscription, SubscriptionStatus, Tariff
 from app.utils.panel_tag import normalize_panel_tag
 
@@ -447,7 +448,45 @@ async def update_tariff(
 
     logger.info('Обновлен тариф', tariff_name=tariff.name, tariff_id=tariff.id)
 
+    # Oden: цена доп. устройства считается от семейного тарифа — пересчитываем после правки.
+    try:
+        await sync_oden_device_prices(db)
+        await db.refresh(tariff)
+    except Exception as sync_error:
+        logger.warning('Не удалось пересчитать цену устройств от семейного тарифа', error=str(sync_error))
+
     return tariff
+
+
+async def sync_oden_device_prices(db: AsyncSession) -> int | None:
+    """Oden: цена доп. устройства = (цена семейного за месяц + наценка) / устройств в семейном.
+
+    Применяется ко всем активным тарифам с меньшим числом устройств; максимум
+    устройств у них — как у семейного. Возвращает цену в копейках (None — не настроено).
+    """
+    base_id = getattr(settings, 'ODEN_DEVICE_PRICE_BASE_TARIFF_ID', 0)
+    if not base_id:
+        return None
+    base = await db.get(Tariff, base_id)
+    month_price = int((base.period_prices or {}).get('30') or 0) if base else 0
+    if not base or month_price <= 0 or not base.device_limit:
+        return None
+    markup = int(getattr(settings, 'ODEN_DEVICE_PRICE_MARKUP_KOPEKS', 0) or 0)
+    # До целого рубля: 690 ₽ + 300 ₽ на 10 устройств = 99 ₽.
+    unit = round((month_price + markup) / base.device_limit / 100) * 100
+    result = await db.execute(select(Tariff).where(Tariff.is_active.is_(True), Tariff.id != base_id))
+    changed = False
+    for tariff in result.scalars().all():
+        if (tariff.device_limit or 0) >= base.device_limit:
+            continue
+        if tariff.device_price_kopeks != unit or tariff.max_device_limit != base.device_limit:
+            tariff.device_price_kopeks = unit
+            tariff.max_device_limit = base.device_limit
+            changed = True
+    if changed:
+        await db.commit()
+        logger.info('Цена доп. устройства пересчитана от семейного тарифа', unit_kopeks=unit, base_tariff_id=base_id)
+    return unit
 
 
 async def delete_tariff(db: AsyncSession, tariff: Tariff) -> bool:

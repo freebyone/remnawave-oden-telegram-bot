@@ -60,6 +60,67 @@ def with_banner(name: str, handler: Callable[..., Awaitable[Any]]) -> Callable[.
     return wrapped
 
 
+# Какой баннер у экрана, открытого кнопкой: (точное значение или префикс callback_data, баннер).
+# Первое совпадение выигрывает. Экран вне списка — с обычным логотипом.
+_CALLBACK_BANNERS: tuple[tuple[str, str], ...] = (
+    # Продление
+    ('se:', 'renew'),
+    ('subscription_extend', 'renew'),
+    ('extend_period', 'renew'),
+    ('tariff_extend', 'renew'),
+    # Редактирование подписки: карточка, устройства, автоплатёж
+    ('buy_edit', 'edit'),
+    ('sm:', 'edit'),
+    ('sd:', 'edit'),
+    ('change_devices', 'edit'),
+    ('device_management', 'edit'),
+    ('subscription_autopay', 'edit'),
+    ('autopay_', 'edit'),
+    ('my_subscriptions', 'edit'),
+    ('menu_subscription', 'edit'),
+    # Подарок и рефералка
+    ('gift_', 'gift'),
+    ('subscription_gift', 'gift'),
+    ('oden_referral', 'gift'),
+    # Подключение
+    ('subscription_connect', 'connect'),
+    ('device_guide_', 'connect'),
+    ('app_list_', 'connect'),
+    ('app_', 'connect'),
+    # Оплата и смена тарифа
+    ('menu_buy', 'buy'),
+    ('buy_change', 'buy'),
+    ('tariff_', 'buy'),
+    ('buy_subscription_tariffs', 'buy'),
+    ('subscription_upgrade', 'buy'),
+    ('subscription_purchase', 'buy'),
+)
+
+
+def banner_for_callback(data: str | None) -> str | None:
+    if not data:
+        return None
+    for prefix, name in _CALLBACK_BANNERS:
+        if data == prefix or data.startswith(prefix):
+            return name
+    return None
+
+
+class ScreenBannerMiddleware:
+    """Включает баннер раздела на время обработки нажатия кнопки этого раздела.
+
+    Так баннер остаётся и на экранах, куда возвращают «Назад» / «Отмена», а не
+    только у первого экрана раздела.
+    """
+
+    async def __call__(self, handler, event, data):
+        name = banner_for_callback(getattr(event, 'data', None))
+        if not name:
+            return await handler(event, data)
+        with screen_banner(name):
+            return await handler(event, data)
+
+
 def current_banner_media() -> str | FSInputFile | None:
     """file_id или файл баннера текущего экрана; None — баннера нет."""
     name = _current.get()
