@@ -109,6 +109,42 @@ def test_guide_back_goes_to_device_picker(monkeypatch: pytest.MonkeyPatch, multi
     assert sum(cb.startswith('subscription_connect') for cb in cbs) == 1
 
 
+@pytest.mark.parametrize('multi', [False, True])
+def test_device_picker_link_button_marks_origin(monkeypatch: pytest.MonkeyPatch, multi: bool) -> None:
+    from app.keyboards.inline import get_device_selection_keyboard
+
+    monkeypatch.setattr(settings, 'MULTI_TARIFF_ENABLED', multi, raising=False)
+    monkeypatch.setattr(settings, 'SALES_MODE', 'tariffs', raising=False)
+    monkeypatch.setattr(settings, 'CONNECT_BUTTON_MODE', 'guide', raising=False)
+    cbs = _callbacks(get_device_selection_keyboard('ru', platforms=[], sub_id=3))
+    assert ('open_subscription_link_c:3' if multi else 'open_subscription_link_c') in cbs
+    assert cbs[-1] == 'back_to_menu'
+
+
+async def test_link_back_returns_to_device_picker_when_opened_from_connect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.handlers.subscription import links
+
+    monkeypatch.setattr(settings, 'MULTI_TARIFF_ENABLED', True, raising=False)
+    monkeypatch.setattr(settings, 'SALES_MODE', 'tariffs', raising=False)
+    monkeypatch.setattr(settings, 'CONNECT_BUTTON_MODE', 'guide', raising=False)
+    monkeypatch.setattr(links, '_resolve_subscription', AsyncMock(return_value=(MagicMock(), 3)))
+    monkeypatch.setattr(links, 'get_display_subscription_link', lambda sub: 'https://sub.example/x')
+
+    async def back_of(data: str) -> str:
+        callback = MagicMock()
+        callback.data = data
+        callback.message.edit_text = AsyncMock()
+        callback.answer = AsyncMock()
+        await links.handle_open_subscription_link(callback, MagicMock(language='ru'), None, None)
+        markup = callback.message.edit_text.await_args.kwargs['reply_markup']
+        return markup.inline_keyboard[-1][0].callback_data
+
+    assert await back_of('open_subscription_link_c:3') == 'subscription_connect:3'
+    assert await back_of('open_subscription_link:3') == 'sm:3'
+
+
 def test_other_apps_back_goes_to_device_guide() -> None:
     kb = get_app_selection_keyboard('android', [{'name': 'Incy', 'id': 'incy'}], 'ru')
     assert _callbacks(kb)[-1] == 'device_guide_android'

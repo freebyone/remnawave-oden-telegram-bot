@@ -46,11 +46,13 @@ BUILTIN_CALLBACKS: set[str] = {
     # Баланс
     'balance_history',
     'balance_topup',
+    'balance_topup:fresh',
     # Подписка
     'subscription_extend',
     'subscription_autopay',
     'subscription_settings',
     'open_subscription_link',
+    'open_subscription_link_c',
     'subscription_add_countries',
     'subscription_reset_traffic',
     'subscription_switch_traffic',

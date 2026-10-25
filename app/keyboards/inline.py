@@ -3222,10 +3222,13 @@ def get_device_selection_keyboard(
             keyboard.append(row)
 
     if settings.CONNECT_BUTTON_MODE == 'guide':
+        # Суффикс _c — «открыто из Подключить VPN»: «Назад» со ссылки вернёт сюда,
+        # а не в карточку подписки. Номер подписки остаётся последним сегментом
+        # (его читает resolve_subscription_from_context).
         _osl_cb = (
-            f'open_subscription_link:{sub_id}'
+            f'open_subscription_link_c:{sub_id}'
             if sub_id and settings.is_multi_tariff_enabled()
-            else 'open_subscription_link'
+            else 'open_subscription_link_c'
         )
         keyboard.append(
             [

@@ -260,7 +260,12 @@ async def handle_open_subscription_link(
     if subscription is None:
         return
     subscription_link = get_display_subscription_link(subscription)
-    back_cb = f'sm:{sub_id}' if settings.is_multi_tariff_enabled() else 'menu_subscription'
+    # Ссылку показывают и из «Подключить VPN» (callback open_subscription_link_c…),
+    # и из карточки подписки в профиле — «Назад» ведёт туда, откуда пришли.
+    if (callback.data or '').startswith('open_subscription_link_c'):
+        back_cb = f'subscription_connect:{sub_id}' if settings.is_multi_tariff_enabled() else 'subscription_connect'
+    else:
+        back_cb = f'sm:{sub_id}' if settings.is_multi_tariff_enabled() else 'menu_subscription'
 
     if not subscription_link:
         await callback.answer(
