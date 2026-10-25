@@ -401,7 +401,11 @@ async def confirm_change_devices(
         )
         price, charged_days = calculate_prorated_price(discounted_per_month, subscription.end_date)
         total_discount = int(discount_per_month * charged_days / 30)
-        period_label = f'{charged_days} дн.' if charged_days > 1 else '1 день'
+        # Oden: человек видит, откуда сумма — месячная цена × дни до конца подписки.
+        period_label = (
+            f'{charged_days} дн. до конца подписки: '
+            f'{texts.format_price(discounted_per_month)} в месяц × {charged_days} дн. ÷ 30'
+        )
 
         if price > 0 and db_user.balance_kopeks < price:
             missing_kopeks = price - db_user.balance_kopeks
@@ -1575,7 +1579,11 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         # Прорейт по остатку подписки (как трафик/серверы), без потолка.
         price, charged_days = calculate_prorated_price(discounted_per_month, subscription.end_date)
         total_discount = int(discount_per_month * charged_days / 30)
-        period_label = f'{charged_days} дн.' if charged_days > 1 else '1 день'
+        # Oden: человек видит, откуда сумма — месячная цена × дни до конца подписки.
+        period_label = (
+            f'{charged_days} дн. до конца подписки: '
+            f'{texts.format_price(discounted_per_month)} в месяц × {charged_days} дн. ÷ 30'
+        )
     else:
         # Для обычных тарифов - по дням (как в кабинете)
         now = datetime.now(UTC)
@@ -1594,7 +1602,11 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         # Прорейт по остатку подписки (как трафик/серверы), без потолка.
         price, charged_days = calculate_prorated_price(discounted_per_month, subscription.end_date)
         total_discount = int(discount_per_month * charged_days / 30)
-        period_label = f'{charged_days} дн.' if charged_days > 1 else '1 день'
+        # Oden: человек видит, откуда сумма — месячная цена × дни до конца подписки.
+        period_label = (
+            f'{charged_days} дн. до конца подписки: '
+            f'{texts.format_price(discounted_per_month)} в месяц × {charged_days} дн. ÷ 30'
+        )
 
     logger.info(
         'Добавление устройств',
