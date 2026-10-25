@@ -2,6 +2,7 @@ import hashlib
 import html as html_module
 import re
 import tempfile
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -345,7 +346,42 @@ async def _answer_with_photo(self: Message, text: str = None, **kwargs):
         raise
 
 
+async def _edit_with_banner(self: Message, text: str, banner, **kwargs):
+    """Oden: экран раздела с баннером вместо логотипа. None — не вышло, рисуем как обычно."""
+    from app.utils.screen_banner import remember_banner_file_id
+
+    edit_kwargs = dict(kwargs)
+    parse_mode = edit_kwargs.pop('parse_mode', 'HTML') or 'HTML'
+    edit_kwargs.pop('disable_web_page_preview', None)
+    try:
+        if self.photo:
+            result = await self.edit_media(
+                InputMediaPhoto(media=banner, caption=text, parse_mode=parse_mode), **edit_kwargs
+            )
+        else:
+            # Текстовое (или rich) сообщение фото не станет — заменяем новым.
+            with suppress(TelegramBadRequest):
+                await self.delete()
+            result = await self.answer_photo(banner, caption=text, parse_mode=parse_mode, **edit_kwargs)
+    except TelegramBadRequest as error:
+        if 'message is not modified' in str(error).lower():
+            return True
+        logger.warning('Баннер раздела не показан — экран с логотипом', error=str(error))
+        return None
+    if isinstance(result, Message):
+        remember_banner_file_id(result)
+    return result if result is not None else True
+
+
 async def _edit_with_photo(self: Message, text: str, **kwargs):
+    from app.utils.screen_banner import current_banner_media
+
+    banner = current_banner_media()
+    if banner is not None and not caption_exceeds_telegram_limit(text):
+        result = await _edit_with_banner(self, text, banner, **kwargs)
+        if result is not None:
+            return result
+
     # Уважаем флаг в рантайме: если логотип выключен — не подменяем редактирование
     if not settings.ENABLE_LOGO_MODE:
         kwargs.setdefault('disable_web_page_preview', True)

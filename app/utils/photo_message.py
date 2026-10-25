@@ -27,6 +27,11 @@ RETRY_DELAY = 0.5
 
 
 def _resolve_media(message: types.Message):
+    from app.utils.screen_banner import current_banner_media
+
+    banner = current_banner_media()
+    if banner is not None:
+        return banner
     if isinstance(message, InaccessibleMessage):
         return get_logo_media()
     if settings.ENABLE_LOGO_MODE and not is_qr_message(message):
@@ -247,7 +252,7 @@ async def edit_or_answer_photo(
                 await callback.message.delete()
             except Exception:
                 pass
-            logo_media = get_logo_media()
+            logo_media = _resolve_media(callback.message)
             if logo_media is None:
                 await _answer_text(callback, caption, keyboard, resolved_parse_mode)
                 return

@@ -1567,7 +1567,11 @@ async def handle_gift_my_back(
 
 def register_gift_handlers(dp: Dispatcher) -> None:
     """Register all gift purchase, navigation, and code activation handlers."""
-    dp.callback_query.register(handle_gift_catalog, F.data.in_({'subscription_gift', 'gift_from_menu'}))
+    from app.utils.screen_banner import with_banner
+
+    dp.callback_query.register(
+        with_banner('gift', handle_gift_catalog), F.data.in_({'subscription_gift', 'gift_from_menu'})
+    )
     dp.callback_query.register(handle_gift_my, F.data == 'gift_my')
     dp.callback_query.register(handle_gift_my_page, F.data.startswith('gift_my_page:'))
     dp.callback_query.register(handle_gift_my_open, F.data.startswith('gift_my_open:'))

@@ -4190,8 +4190,11 @@ def register_handlers(dp: Dispatcher):
 
     dp.callback_query.register(handle_trial_payment_method, F.data.startswith('trial_payment_'))
 
+    from app.utils.screen_banner import with_banner
+
     dp.callback_query.register(
-        start_subscription_purchase, F.data.in_(['menu_buy', 'subscription_upgrade', 'subscription_purchase'])
+        with_banner('buy', start_subscription_purchase),
+        F.data.in_(['menu_buy', 'subscription_upgrade', 'subscription_purchase']),
     )
 
     dp.callback_query.register(handle_add_countries, F.data == 'subscription_add_countries')
@@ -4315,7 +4318,9 @@ def register_handlers(dp: Dispatcher):
 
     dp.callback_query.register(handle_happ_download_back, F.data == 'happ_download_back')
 
-    dp.callback_query.register(handle_connect_subscription, F.data.startswith('subscription_connect'))
+    dp.callback_query.register(
+        with_banner('connect', handle_connect_subscription), F.data.startswith('subscription_connect')
+    )
 
     dp.callback_query.register(handle_device_guide, F.data.startswith('device_guide_'))
 
