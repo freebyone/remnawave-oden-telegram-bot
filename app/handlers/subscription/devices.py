@@ -1879,6 +1879,7 @@ async def handle_device_guide(callback: types.CallbackQuery, db_user: User, db: 
             db_user.language,
             has_other_apps=bool(other_apps),
             sub_id=sub_id,
+            extra_apps=other_apps,
         ),
         parse_mode='HTML',
     )

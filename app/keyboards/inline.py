@@ -3199,7 +3199,19 @@ def get_manage_countries_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-_ODEN_BOT_PLATFORMS = frozenset({'ios', 'android', 'windows', 'macos'})
+_ODEN_BOT_PLATFORMS = frozenset({'ios', 'android', 'windows', 'macos', 'mac'})
+
+
+def _oden_app_connect_url(app: dict, subscription_url: str) -> str | None:
+    """Ссылка «добавить подписку в приложение»: deep link приложения через страницу-переход
+    (Telegram не открывает happ:// и т.п. из кнопок напрямую)."""
+    deep_link = create_deep_link(app.get('_raw', app), subscription_url)
+    if not deep_link:
+        return None
+    if deep_link.startswith(('http://', 'https://')):
+        return deep_link
+    template = settings.get_happ_cryptolink_redirect_template()
+    return build_redirect_link(deep_link, template) if template else None
 
 
 def get_device_selection_keyboard(
@@ -3274,6 +3286,7 @@ def get_connection_guide_keyboard(
     language: str = DEFAULT_LANGUAGE,
     has_other_apps: bool = False,
     sub_id: int | None = None,
+    extra_apps: list[dict] | None = None,
 ) -> InlineKeyboardMarkup:
     texts = get_texts(language)
     # Инструкция открыта с экрана «Подключить VPN» (выбор устройства), поэтому
@@ -3339,15 +3352,31 @@ def get_connection_guide_keyboard(
                         final_url = subscription_url
 
                 if final_url:
+                    # Oden: «Подключиться Happ» — у каждой кнопки видно, какое приложение откроется.
+                    app_name = str(app.get('name') or '').strip()
                     keyboard.append(
                         [
                             InlineKeyboardButton(
-                                text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
+                                text=f'🔗 Подключиться {app_name}'.rstrip()
+                                if app_name
+                                else texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
                                 url=final_url,
                                 style='success',
                             )
                         ]
                     )
+                    # Oden: кнопки подключения остальных приложений платформы (Incy и т.п.).
+                    for extra_app in extra_apps or []:
+                        extra_url = _oden_app_connect_url(extra_app, subscription_url)
+                        extra_name = str(extra_app.get('name') or '').strip()
+                        if extra_url and extra_name:
+                            keyboard.append(
+                                [
+                                    InlineKeyboardButton(
+                                        text=f'🔗 Подключиться {extra_name}', url=extra_url, style='success'
+                                    )
+                                ]
+                            )
                 elif settings.is_happ_cryptolink_mode():
                     _osl_cb = (
                         f'open_subscription_link:{sub_id}'
