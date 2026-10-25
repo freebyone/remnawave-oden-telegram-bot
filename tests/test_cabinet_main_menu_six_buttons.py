@@ -59,7 +59,11 @@ def test_main_menu_has_six_buttons_one_per_row(cabinet_mode_no_url) -> None:
         )
 
 
-def test_main_menu_buttons_keep_color_without_cabinet_url(cabinet_mode_no_url) -> None:
+# 25.10.2026: красные — только «Оплатить подписку» и «Пробный период», остальные серые.
+RED_CALLBACKS = {'menu_buy', 'menu_trial'}
+
+
+def test_main_menu_button_colors_without_cabinet_url(cabinet_mode_no_url) -> None:
     kb = get_main_menu_keyboard(language='ru', is_admin=False)
 
     flat_buttons = [btn for row in kb.inline_keyboard for btn in row]
@@ -68,7 +72,10 @@ def test_main_menu_buttons_keep_color_without_cabinet_url(cabinet_mode_no_url) -
     for expected in EXPECTED_CALLBACKS:
         button = by_callback[expected]
         assert button.web_app is None, f'{expected!r} must not force the user into the disabled web cabinet'
-        assert button.style is not None, f'{expected!r} lost its color when the cabinet URL was cleared'
+        if expected in RED_CALLBACKS:
+            assert button.style == 'danger', f'{expected!r} must stay red'
+        else:
+            assert button.style is None, f'{expected!r} must be grey (no color)'
 
 
 def test_profile_and_referral_are_not_in_the_bot_menu(cabinet_mode_no_url) -> None:

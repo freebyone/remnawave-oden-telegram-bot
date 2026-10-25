@@ -44,14 +44,16 @@ def test_cabinet_button_from_menu_button_url(cabinet_menu) -> None:
     cabinet_menu.setattr(settings, 'MENU_BUTTON_WEBAPP_URL', CABINET, raising=False)
 
     kb = get_main_menu_keyboard(language='ru', is_admin=False)
-    first_row = kb.inline_keyboard[0]
+    # «Личный кабинет» — последней строкой (для не-админа), серая.
+    last_row = kb.inline_keyboard[-1]
 
-    assert len(first_row) == 1
-    assert first_row[0].web_app is not None
-    assert first_row[0].web_app.url == CABINET
+    assert len(last_row) == 1
+    assert last_row[0].web_app is not None
+    assert last_row[0].web_app.url == CABINET
+    assert last_row[0].style is None
 
     # Всё остальное меню — обычные кнопки бота, без перехода в кабинет.
-    others = _flat(kb)[1:]
+    others = _flat(kb)[:-1]
     assert others, 'menu must keep its regular buttons'
     assert all(btn.web_app is None and btn.callback_data for btn in others)
 
@@ -61,4 +63,4 @@ def test_miniapp_custom_url_still_wins_for_cabinet_button(cabinet_menu) -> None:
     cabinet_menu.setattr(settings, 'MENU_BUTTON_WEBAPP_URL', CABINET, raising=False)
 
     kb = get_main_menu_keyboard(language='ru', is_admin=False)
-    assert kb.inline_keyboard[0][0].web_app.url == 'https://custom.example.test'
+    assert kb.inline_keyboard[-1][0].web_app.url == 'https://custom.example.test'

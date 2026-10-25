@@ -15,20 +15,22 @@ logger = structlog.get_logger(__name__)
 
 # ---- Defaults per section ------------------------------------------------
 
+# Oden: красные (danger) — только «Оплатить подписку» и «Пробный период»,
+# остальные кнопки главного меню серые ('default' = без цвета).
 DEFAULT_BUTTON_STYLES: dict[str, dict] = {
-    'home': {'style': 'primary', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
+    'home': {'style': 'default', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
     'subscription': {'style': 'success', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
     'balance': {'style': 'primary', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
     'referral': {'style': 'success', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
     'support': {'style': 'primary', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
     'info': {'style': 'primary', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
-    'admin': {'style': 'danger', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
+    'admin': {'style': 'default', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
     'language': {'style': 'primary', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
     'buy_subscription': {'style': 'danger', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
-    'connect': {'style': 'success', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
-    'trial': {'style': 'primary', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
-    'my_profile': {'style': 'primary', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
-    'invite_friend': {'style': 'success', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
+    'connect': {'style': 'default', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
+    'trial': {'style': 'danger', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
+    'my_profile': {'style': 'default', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
+    'invite_friend': {'style': 'default', 'icon_custom_emoji_id': '', 'enabled': True, 'labels': {}},
 }
 
 BOT_LOCALES = ('ru', 'en', 'ua', 'zh', 'fa')

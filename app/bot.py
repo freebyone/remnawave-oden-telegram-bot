@@ -185,6 +185,11 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
     dp.message.middleware(SubscriptionStatusMiddleware())
     dp.callback_query.middleware(SubscriptionStatusMiddleware())
     dp.pre_checkout_query.middleware(SubscriptionStatusMiddleware())
+    # Первым: узкий фильтр (админ, личка, вне диалога, есть custom emoji) —
+    # ID анимированных эмодзи для иконок кнопок меню.
+    from app.handlers.admin import emoji_ids as admin_emoji_ids
+
+    admin_emoji_ids.register_handlers(dp)
     start.register_handlers(dp)
     menu.register_handlers(dp)
     subscription.register_handlers(dp)
