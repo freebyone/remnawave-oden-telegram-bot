@@ -78,10 +78,10 @@ _CALLBACK_BANNERS: tuple[tuple[str, str], ...] = (
     ('autopay_', 'edit'),
     ('my_subscriptions', 'edit'),
     ('menu_subscription', 'edit'),
-    # Подарок и рефералка
+    # Реферальная программа и подарок
+    ('oden_referral', 'partner'),
     ('gift_', 'gift'),
     ('subscription_gift', 'gift'),
-    ('oden_referral', 'gift'),
     # Подключение
     ('subscription_connect', 'connect'),
     ('device_guide_', 'connect'),
