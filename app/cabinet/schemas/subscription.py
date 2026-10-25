@@ -235,6 +235,11 @@ class TariffPurchaseRequest(BaseModel):
         ge=1,
         description='Existing subscription_id when renewing (multi-tariff). Resolves race with concurrent panel webhooks.',
     )
+    # Oden: число устройств, выбранное при покупке (входящие в тариф + докупленные).
+    # None — как раньше: лимит тарифа или уже докупленный лимит продлеваемой подписки.
+    device_limit: int | None = Field(
+        None, ge=1, le=1000, description='Total device limit chosen at checkout (tariff devices + extra)'
+    )
     # See PurchasePreviewRequest.yandex_cid (#558449).
     yandex_cid: str | None = Field(
         None,

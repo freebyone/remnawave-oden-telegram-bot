@@ -173,6 +173,11 @@ async def _build_tariff_response(
                 tariff.device_price_kopeks if tariff.device_price_kopeks is not None else settings.PRICE_PER_DEVICE
             )
 
+    from app.services.pricing_engine import extra_device_terms
+    from app.utils.pricing_utils import calculate_months_from_days
+
+    extra_unit_price, extra_max_device_limit = extra_device_terms(tariff)
+
     periods = []
     if tariff.period_prices:
         for period_str, price_kopeks in sorted(tariff.period_prices.items(), key=lambda x: int(x[0])):
@@ -235,6 +240,16 @@ async def _build_tariff_response(
                 period_data['base_tariff_price_kopeks'] = base_tariff_price
                 period_data['base_tariff_price_label'] = settings.format_price(base_tariff_price)
 
+            # Oden: сколько добавит к цене периода одно устройство сверх выбранного
+            # лимита — тем же расчётом, что pricing_engine при покупке.
+            if extra_unit_price > 0:
+                unit_cost = extra_unit_price * calculate_months_from_days(period_days)
+                if promo_group:
+                    devices_pct = promo_group.get_discount_percent('devices', period_days)
+                    if devices_pct > 0:
+                        unit_cost = pricing_engine.apply_discount(unit_cost, devices_pct)
+                period_data['extra_device_price_kopeks'] = unit_cost
+
             # Add discount info if discount is applied
             if discount_percent > 0:
                 period_data['original_price_kopeks'] = original_price
@@ -292,6 +307,9 @@ async def _build_tariff_response(
         'base_device_limit': tariff.device_limit,
         'extra_devices_count': extra_devices_count,
         'device_price_kopeks': device_price,
+        # Oden: докупка устройств при покупке — доступна при extra_device_price_kopeks > 0.
+        'extra_device_price_kopeks': extra_unit_price,
+        'max_device_limit': extra_max_device_limit,
         'servers_count': servers_count,
         'servers': servers,
         'periods': periods,
@@ -812,6 +830,18 @@ async def purchase_tariff(
             if (existing_subscription.device_limit or 0) > (tariff.device_limit or 0):
                 effective_device_limit = existing_subscription.device_limit
 
+        # Oden: число устройств выбрано при покупке — по нему и цена, и лимит подписки.
+        chosen_device_limit = None
+        if request.device_limit is not None and request.device_limit != effective_device_limit:
+            from app.services.pricing_engine import validate_chosen_device_limit
+
+            device_error = validate_chosen_device_limit(tariff, request.device_limit)
+            if device_error:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=device_error)
+            chosen_device_limit = request.device_limit
+            device_limit = chosen_device_limit
+            effective_device_limit = chosen_device_limit
+
         # Calculate price via PricingEngine (single source of truth)
         result = await pricing_engine.calculate_tariff_purchase_price(
             tariff,
@@ -891,6 +921,9 @@ async def purchase_tariff(
                     'source': 'cabinet',
                     'subscription_id': existing_subscription.id if existing_subscription else None,
                 }
+                if chosen_device_limit is not None:
+                    # Автопокупка после пополнения берёт выбранные устройства только по этому ключу.
+                    cart_data['chosen_device_limit'] = chosen_device_limit
 
             try:
                 await user_cart_service.save_user_cart(user.id, cart_data)
@@ -1097,7 +1130,7 @@ async def purchase_tariff(
                         user_id=user.id,
                         duration_days=period_days,
                         traffic_limit_gb=traffic_limit_gb,
-                        device_limit=tariff.device_limit,
+                        device_limit=effective_device_limit,
                         connected_squads=squads,
                         tariff_id=tariff.id,
                         conversion_trial=_conversion_trial,

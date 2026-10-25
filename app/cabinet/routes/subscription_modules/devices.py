@@ -478,6 +478,8 @@ async def purchase_devices(
                     'base_price_kopeks': base_price_prorated,
                     'discount_percent': devices_discount_percent,
                     'source': 'cabinet',
+                    # Мультитариф: без id автопокупка добавила бы устройства последней созданной подписке.
+                    'subscription_id': subscription.id,
                 }
                 await user_cart_service.save_user_cart(user.id, cart_data)
                 logger.info(

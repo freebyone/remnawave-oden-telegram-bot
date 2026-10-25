@@ -962,3 +962,31 @@ class PricingEngine:
 
 # Module-level singleton — use this instead of PricingEngine()
 pricing_engine = PricingEngine()
+
+
+def extra_device_terms(tariff: Tariff) -> tuple[int, int | None]:
+    """Цена доп. устройства в месяц и максимум устройств для тарифа.
+
+    То же правило, что у докупки устройств в кабинете (/devices/price): цена
+    тарифа, если задана, иначе PRICE_PER_DEVICE; максимум — тарифа, иначе
+    MAX_DEVICES_LIMIT. Цена 0 — докупка для тарифа выключена.
+    """
+    if tariff.device_price_kopeks is not None:
+        return int(tariff.device_price_kopeks), tariff.max_device_limit
+    max_limit = settings.MAX_DEVICES_LIMIT if settings.MAX_DEVICES_LIMIT > 0 else None
+    return int(settings.PRICE_PER_DEVICE or 0), max_limit
+
+
+def validate_chosen_device_limit(tariff: Tariff, device_limit: int) -> str | None:
+    """Почему выбранное при покупке число устройств нельзя взять (None — можно)."""
+    included = tariff.device_limit or 0
+    if device_limit < included:
+        return f'В тариф входит {included} устройств — меньше выбрать нельзя'
+    if device_limit == included:
+        return None
+    unit_price, max_limit = extra_device_terms(tariff)
+    if unit_price <= 0:
+        return 'Докупка устройств для этого тарифа недоступна'
+    if max_limit and device_limit > max_limit:
+        return f'Максимальное количество устройств: {max_limit}'
+    return None

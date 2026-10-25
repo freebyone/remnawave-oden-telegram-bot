@@ -925,6 +925,22 @@ async def _auto_purchase_tariff(
     if existing_subscription and existing_subscription.tariff_id == tariff_id:
         device_limit = existing_subscription.device_limit
 
+    # Oden: устройства, выбранные в кабинете при покупке (ключ ставит только /purchase-tariff).
+    chosen_device_limit = _safe_int(cart_data.get('chosen_device_limit')) or None
+    if chosen_device_limit is not None:
+        from app.services.pricing_engine import validate_chosen_device_limit
+
+        if validate_chosen_device_limit(tariff, chosen_device_limit):
+            logger.warning(
+                '🔁 Автопокупка тарифа: выбранное число устройств больше недоступно — берём лимит тарифа',
+                format_user_id=_format_user_id(user),
+                tariff_id=tariff_id,
+                chosen_device_limit=chosen_device_limit,
+            )
+            chosen_device_limit = None
+        else:
+            device_limit = chosen_device_limit
+
     result = await pricing_engine.calculate_tariff_purchase_price(
         tariff,
         period_days,
@@ -983,7 +999,9 @@ async def _auto_purchase_tariff(
         if existing_subscription:
             # Продлеваем существующую подписку
             # Сохраняем докупленные устройства при продлении того же тарифа
-            if existing_subscription.tariff_id == tariff.id:
+            if chosen_device_limit is not None:
+                effective_device_limit = chosen_device_limit
+            elif existing_subscription.tariff_id == tariff.id:
                 effective_device_limit = max(tariff.device_limit or 0, existing_subscription.device_limit or 0)
             else:
                 effective_device_limit = tariff.device_limit
@@ -1008,7 +1026,7 @@ async def _auto_purchase_tariff(
                 user_id=user.id,
                 duration_days=period_days,
                 traffic_limit_gb=tariff.traffic_limit_gb,
-                device_limit=tariff.device_limit,
+                device_limit=chosen_device_limit or tariff.device_limit,
                 connected_squads=squads,
                 tariff_id=tariff.id,
             )
