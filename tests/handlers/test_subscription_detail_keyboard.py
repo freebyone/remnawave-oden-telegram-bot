@@ -207,15 +207,16 @@ def test_action_rows_have_no_back_button() -> None:
 
 
 @pytest.mark.anyio('asyncio')
-async def test_single_subscription_detail_opens_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_single_subscription_detail_opens_main_menu(monkeypatch: pytest.MonkeyPatch) -> None:
     """sm:{id} is where Back from traffic/devices/etc. leads. With one
-    subscription its controls live in «Мой профиль», so the detail screen
-    must hand off there — after still writing the FSM id autopay depends on."""
+    subscription there is no management screen in the bot (profile and
+    subscription controls live in the cabinet), so it hands off to the main
+    menu — after still writing the FSM id autopay depends on."""
     sub = _full_subscription(7)
     monkeypatch.setattr(my_subscriptions, 'get_subscription_by_id_for_user', AsyncMock(return_value=sub))
     monkeypatch.setattr(my_subscriptions, 'get_all_subscriptions_by_user_id', AsyncMock(return_value=[sub]))
     show_profile = AsyncMock()
-    monkeypatch.setattr('app.handlers.menu.show_my_profile', show_profile)
+    monkeypatch.setattr('app.handlers.menu.handle_back_to_menu', show_profile)
 
     state = SimpleNamespace(update_data=AsyncMock())
     db_user = SimpleNamespace(id=1, language='ru')
@@ -229,7 +230,7 @@ async def test_single_subscription_detail_opens_profile(monkeypatch: pytest.Monk
     await show_subscription_detail(callback, db_user, db, state)
 
     state.update_data.assert_any_call(active_subscription_id=7)
-    show_profile.assert_awaited_once_with(callback, db_user, db, state)
+    show_profile.assert_awaited_once_with(callback, state, db_user, db)
     callback.message.edit_text.assert_not_awaited()
 
 
@@ -242,7 +243,7 @@ async def test_multiple_subscriptions_detail_renders_card(monkeypatch: pytest.Mo
         my_subscriptions, 'get_all_subscriptions_by_user_id', AsyncMock(return_value=[sub, _full_subscription(8)])
     )
     show_profile = AsyncMock()
-    monkeypatch.setattr('app.handlers.menu.show_my_profile', show_profile)
+    monkeypatch.setattr('app.handlers.menu.handle_back_to_menu', show_profile)
 
     callback = SimpleNamespace(
         data='sm:7',
@@ -260,15 +261,16 @@ async def test_multiple_subscriptions_detail_renders_card(monkeypatch: pytest.Mo
 
 
 @pytest.mark.anyio('asyncio')
-async def test_single_subscription_list_opens_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_single_subscription_list_opens_main_menu(monkeypatch: pytest.MonkeyPatch) -> None:
     """Many Back buttons lead to the list (menu_subscription, gift cancel,
-    reissue). A one-item list is a dead step, so it hands off to the profile."""
+    reissue). A one-item list is a dead step, so it hands off to the main menu
+    (the profile lives in the cabinet)."""
     monkeypatch.setattr(Settings, 'is_multi_tariff_enabled', lambda self: True)
     monkeypatch.setattr(
         my_subscriptions, 'get_all_subscriptions_by_user_id', AsyncMock(return_value=[_full_subscription(7)])
     )
     show_profile = AsyncMock()
-    monkeypatch.setattr('app.handlers.menu.show_my_profile', show_profile)
+    monkeypatch.setattr('app.handlers.menu.handle_back_to_menu', show_profile)
 
     callback = SimpleNamespace(answer=AsyncMock(), message=SimpleNamespace(edit_text=AsyncMock()))
     db_user = SimpleNamespace(id=1, language='ru')

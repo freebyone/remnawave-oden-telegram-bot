@@ -1353,7 +1353,9 @@ async def process_language_change(
     await callback.answer(texts.t('LANGUAGE_SELECTED', '🌐 Язык интерфейса обновлен.'))
 
 
-async def handle_back_to_menu(callback: types.CallbackQuery, state: FSMContext, db_user: User, db: AsyncSession):
+async def handle_back_to_menu(
+    callback: types.CallbackQuery, state: FSMContext | None, db_user: User, db: AsyncSession
+):
     if db_user is None:
         # Пользователь не найден, используем язык по умолчанию
         texts = get_texts(settings.DEFAULT_LANGUAGE)
@@ -1366,7 +1368,8 @@ async def handle_back_to_menu(callback: types.CallbackQuery, state: FSMContext, 
         )
         return
 
-    await state.clear()
+    if state is not None:
+        await state.clear()
     from app.handlers.subscription.purchase_return import forget_purchase_screen
 
     await forget_purchase_screen(db_user.id)

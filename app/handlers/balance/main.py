@@ -262,19 +262,20 @@ async def show_balance_menu(
         await callback.answer()
         return
 
-    # Баланс, пополнение и история операций живут в «Мой профиль». Отдельный
-    # экран баланса создавал петлю «Пополнить» → «Назад» (сюда) → «Пополнить».
-    # На menu_balance ведут «Назад» всех платёжных провайдеров, истории и
-    # привязанных карт, поэтому перенаправляем здесь, а не в каждой кнопке.
+    # Отдельного экрана баланса нет (баланс, пополнение и история — в кабинете;
+    # экран создавал петлю «Пополнить» → «Назад» → «Пополнить»). На menu_balance
+    # ведут «Назад» всех платёжных провайдеров, истории и привязанных карт,
+    # поэтому перенаправляем здесь, а не в каждой кнопке.
     # Если человек ушёл в оплату с экрана покупки подписки — возвращаем туда.
     from app.handlers.subscription.purchase_return import return_to_purchase
 
     if await return_to_purchase(callback, db_user, db, state):
         return
 
-    from app.handlers.menu import show_my_profile
+    # Профиля в боте нет (баланс и история — в кабинете): в главное меню.
+    from app.handlers.menu import handle_back_to_menu
 
-    await show_my_profile(callback, db_user, db, state)
+    await handle_back_to_menu(callback, state, db_user, db)
 
 
 @error_handler

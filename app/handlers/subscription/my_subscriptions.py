@@ -115,11 +115,10 @@ def _build_subscriptions_keyboard(
                 )
             ]
         )
-    # Назад — в профиль: список подписок открывается именно оттуда, и возврат
-    # сразу в главное меню пропускал бы уровень, с которого пришёл пользователь.
+    # Профиля в боте нет (он в кабинете) — назад в главное меню.
     buttons.append(
         [
-            types.InlineKeyboardButton(text='◀️ Назад', callback_data='menu_my_profile'),
+            types.InlineKeyboardButton(text='◀️ Назад', callback_data='back_to_menu'),
         ]
     )
 
@@ -149,13 +148,13 @@ async def show_my_subscriptions(
     gift_enabled = True
     subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
 
-    # Единственная подписка управляется прямо из «Мой профиль», а список из
-    # одного пункта — лишний шаг. Сюда ведут многие «Назад» (menu_subscription,
-    # отмена подарка, перевыпуск), поэтому перенаправляем здесь, а не в каждой кнопке.
+    # Управление подпиской и профиль живут в кабинете, а список из одного пункта —
+    # лишний шаг. Сюда ведут многие «Назад» (menu_subscription, отмена подарка,
+    # перевыпуск), поэтому перенаправляем здесь — в главное меню с карточкой подписки.
     if len(subscriptions) == 1:
-        from app.handlers.menu import show_my_profile
+        from app.handlers.menu import handle_back_to_menu
 
-        await show_my_profile(callback, db_user, db, state)
+        await handle_back_to_menu(callback, state, db_user, db)
         return
 
     if not subscriptions:
@@ -172,7 +171,7 @@ async def show_my_subscriptions(
                     )
                 ]
             )
-        buttons.append([types.InlineKeyboardButton(text='◀️ Назад', callback_data='menu_my_profile')])
+        buttons.append([types.InlineKeyboardButton(text='◀️ Назад', callback_data='back_to_menu')])
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     else:
         lines = ['📋 <b>Мои подписки</b>\n']
@@ -210,15 +209,14 @@ async def show_subscription_detail(
     # (e.g. 'subscription_autopay') can resolve the right subscription via FSM.
     await state.update_data(active_subscription_id=sub_id)
 
-    # С одной подпиской её управление живёт прямо в «Мой профиль». sm:{id} —
-    # это куда ведут «Назад» с экранов трафика, устройств и т.п., поэтому он
-    # тоже открывает профиль: иначе обратный путь шёл бы через отдельный экран
-    # подписки и список из одного пункта, которых пользователь не проходил.
+    # С одной подпиской отдельного экрана управления нет: профиль и управление
+    # подпиской — в кабинете. sm:{id} — куда ведут «Назад» с экранов трафика,
+    # устройств и т.п., поэтому он открывает главное меню с карточкой подписки.
     subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
     if len(subscriptions) == 1:
-        from app.handlers.menu import show_my_profile
+        from app.handlers.menu import handle_back_to_menu
 
-        await show_my_profile(callback, db_user, db, state)
+        await handle_back_to_menu(callback, state, db_user, db)
         return
 
     text = format_subscription_detail_text(subscription)

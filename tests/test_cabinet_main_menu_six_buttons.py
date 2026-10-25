@@ -1,9 +1,9 @@
-"""Regression test: cabinet-mode main menu exposes exactly the six
-user-facing buttons requested for the simplified /start screen — Оплатить
-подписку, Подключить VPN, Пробный период, Мой профиль, Подарить другу,
-Реферальная система — each on its own row, each keeping its Bot API 9.4
+"""Regression test: cabinet-mode main menu exposes the user-facing buttons of
+the simplified /start screen — Оплатить подписку, Подключить VPN, Пробный
+период, Подарить другу — each on its own row, each keeping its Bot API 9.4
 color even though the external cabinet web app is disabled
-(MINIAPP_CUSTOM_URL empty).
+(MINIAPP_CUSTOM_URL empty). «Мой профиль» и «Реферальная система» живут в
+кабинете (25.10.2026) и в меню бота не показываются.
 """
 
 from __future__ import annotations
@@ -18,10 +18,10 @@ EXPECTED_CALLBACKS = [
     'menu_buy',
     'subscription_connect',
     'menu_trial',
-    'menu_my_profile',
     'gift_from_menu',
-    'menu_referrals',
 ]
+
+MOVED_TO_CABINET = ['menu_my_profile', 'menu_referrals']
 
 
 @pytest.fixture
@@ -69,6 +69,13 @@ def test_main_menu_buttons_keep_color_without_cabinet_url(cabinet_mode_no_url) -
         button = by_callback[expected]
         assert button.web_app is None, f'{expected!r} must not force the user into the disabled web cabinet'
         assert button.style is not None, f'{expected!r} lost its color when the cabinet URL was cleared'
+
+
+def test_profile_and_referral_are_not_in_the_bot_menu(cabinet_mode_no_url) -> None:
+    kb = get_main_menu_keyboard(language='ru', is_admin=False)
+    flat_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    for moved in MOVED_TO_CABINET:
+        assert moved not in flat_callbacks, f'{moved!r} moved to the cabinet'
 
 
 def test_admin_row_still_present_for_admins(cabinet_mode_no_url) -> None:

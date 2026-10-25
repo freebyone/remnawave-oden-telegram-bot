@@ -189,8 +189,9 @@ class TestSubscriptionGiftEntryVisibility:
         assert 'subscription_gift' in callbacks
         assert 'sm:10' in callbacks
         assert 'menu_buy' in callbacks
-        # The list is opened from «Мой профиль», so Back returns there.
-        assert 'menu_my_profile' in callbacks
+        # Профиля в боте нет (он в кабинете) — Back ведёт в главное меню.
+        assert 'back_to_menu' in callbacks
+        assert 'menu_my_profile' not in callbacks
 
     def test_multi_mode_build_subscriptions_keyboard_gift_disabled(self):
         subs = [SimpleNamespace(id=10, tariff=SimpleNamespace(name='Basic'), tariff_id=10, is_trial=False)]

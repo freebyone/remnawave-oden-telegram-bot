@@ -30,9 +30,14 @@ def _callbacks(keyboard) -> list[str]:
 
 
 @pytest.mark.anyio('asyncio')
-async def test_balance_menu_opens_profile(monkeypatch: pytest.MonkeyPatch) -> None:
-    show_profile = AsyncMock()
-    monkeypatch.setattr('app.handlers.menu.show_my_profile', show_profile)
+async def test_balance_menu_opens_main_menu(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Профиля в меню бота нет (25.10.2026, он в кабинете): menu_balance —
+    куда ведут «Назад» провайдеров — открывает главное меню."""
+    main_menu = AsyncMock()
+    monkeypatch.setattr('app.handlers.menu.handle_back_to_menu', main_menu)
+    monkeypatch.setattr(
+        'app.handlers.subscription.purchase_return.return_to_purchase', AsyncMock(return_value=False)
+    )
 
     callback = SimpleNamespace(message=SimpleNamespace(), answer=AsyncMock())
     db_user = SimpleNamespace(id=1, language='ru')
@@ -41,7 +46,7 @@ async def test_balance_menu_opens_profile(monkeypatch: pytest.MonkeyPatch) -> No
 
     await show_balance_menu(callback, db_user, db, state)
 
-    show_profile.assert_awaited_once_with(callback, db_user, db, state)
+    main_menu.assert_awaited_once_with(callback, state, db_user, db)
 
 
 @pytest.mark.anyio('asyncio')

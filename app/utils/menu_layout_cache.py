@@ -44,9 +44,8 @@ DEFAULT_MENU_LAYOUT: dict[str, object] = {
     'row_1': {'id': 'row_1', 'buttons': ['buy_subscription'], 'max_per_row': 1},
     'row_2': {'id': 'row_2', 'buttons': ['connect'], 'max_per_row': 1},
     'row_3': {'id': 'row_3', 'buttons': ['trial'], 'max_per_row': 1},
-    'row_4': {'id': 'row_4', 'buttons': ['my_profile'], 'max_per_row': 1},
+    # «Мой профиль» и «Реферальная система» — в кабинете, в меню бота их нет.
     'row_5': {'id': 'row_5', 'buttons': ['invite_friend'], 'max_per_row': 1},
-    'row_6': {'id': 'row_6', 'buttons': ['referral'], 'max_per_row': 1},
     'row_7': {'id': 'row_7', 'buttons': ['admin'], 'max_per_row': 1},
     'custom_buttons': {},
 }
