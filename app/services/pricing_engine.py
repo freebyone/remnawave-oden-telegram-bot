@@ -602,6 +602,7 @@ class PricingEngine:
             tariff.device_price_kopeks if tariff.device_price_kopeks is not None else settings.PRICE_PER_DEVICE
         )
         tariff_device_limit = tariff.device_limit or 0
+        extra_devices = max(0, (device_limit or 0) - tariff_device_limit)
         devices_month = extra_devices_monthly_cost(
             tariff, tariff_device_limit, device_limit or 0, device_price_per_unit
         )
