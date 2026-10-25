@@ -115,10 +115,10 @@ def _build_subscriptions_keyboard(
                 )
             ]
         )
-    # Профиля в боте нет (он в кабинете) — назад в главное меню.
+    # «Мои подписки» открываются из «Оплатить подписку» — туда и назад.
     buttons.append(
         [
-            types.InlineKeyboardButton(text='◀️ Назад', callback_data='back_to_menu'),
+            types.InlineKeyboardButton(text='◀️ Назад', callback_data='menu_buy'),
         ]
     )
 
@@ -148,15 +148,8 @@ async def show_my_subscriptions(
     gift_enabled = True
     subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
 
-    # Управление подпиской и профиль живут в кабинете, а список из одного пункта —
-    # лишний шаг. Сюда ведут многие «Назад» (menu_subscription, отмена подарка,
-    # перевыпуск), поэтому перенаправляем здесь — в главное меню с карточкой подписки.
-    if len(subscriptions) == 1:
-        from app.handlers.menu import handle_back_to_menu
-
-        await handle_back_to_menu(callback, state, db_user, db)
-        return
-
+    # Oden (25.10): список показываем и с одной подпиской — отсюда продление и
+    # докупка устройств уже оплаченной подписки («Оплатить подписку» → «Мои подписки»).
     if not subscriptions:
         text = '📋 <b>Мои подписки</b>\n\nУ вас нет подписок.'
         buttons = [
@@ -171,7 +164,7 @@ async def show_my_subscriptions(
                     )
                 ]
             )
-        buttons.append([types.InlineKeyboardButton(text='◀️ Назад', callback_data='back_to_menu')])
+        buttons.append([types.InlineKeyboardButton(text='◀️ Назад', callback_data='menu_buy')])
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     else:
         lines = ['📋 <b>Мои подписки</b>\n']
@@ -208,16 +201,6 @@ async def show_subscription_detail(
     # Persist active sub_id so downstream handlers without sub_id in callback_data
     # (e.g. 'subscription_autopay') can resolve the right subscription via FSM.
     await state.update_data(active_subscription_id=sub_id)
-
-    # С одной подпиской отдельного экрана управления нет: профиль и управление
-    # подпиской — в кабинете. sm:{id} — куда ведут «Назад» с экранов трафика,
-    # устройств и т.п., поэтому он открывает главное меню с карточкой подписки.
-    subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
-    if len(subscriptions) == 1:
-        from app.handlers.menu import handle_back_to_menu
-
-        await handle_back_to_menu(callback, state, db_user, db)
-        return
 
     text = format_subscription_detail_text(subscription)
     keyboard = _build_subscription_detail_keyboard(sub_id, sub=subscription)
@@ -312,17 +295,28 @@ async def handle_subscription_devices(
 
     # Проверяем доступность докупки устройств
     can_buy_devices = False
+    unavailable_hint = ''
     if subscription.tariff_id:
         from app.database.crud.tariff import get_tariff_by_id
 
         tariff = await get_tariff_by_id(db, subscription.tariff_id)
-        tariff_device_price = getattr(tariff, 'device_price_kopeks', None) if tariff else None
-        can_buy_devices = bool(tariff_device_price and tariff_device_price > 0)
+        if tariff:
+            # Докупка в боте (handle_change_devices) требует цену устройства у самого тарифа.
+            unit_price = tariff.device_price_kopeks or 0
+            max_limit = tariff.max_device_limit
+            if unit_price <= 0:
+                unavailable_hint = '\n\nДокупка устройств для этого тарифа недоступна.'
+            elif max_limit and (subscription.device_limit or 0) >= max_limit:
+                unavailable_hint = f'\n\nНа тарифе максимум {max_limit} устройств.'
+            else:
+                can_buy_devices = True
     else:
         can_buy_devices = settings.is_devices_selection_enabled()
 
     current_devices = Texts.format_device_limit(subscription.device_limit)
-    text = f'📱 <b>Устройства</b>\n\nТекущий лимит: {current_devices} устройств\n\nВыберите действие:'
+    text = (
+        f'📱 <b>Устройства</b>\n\nТекущий лимит: {current_devices} устройств{unavailable_hint}\n\nВыберите действие:'
+    )
 
     keyboard = []
     if can_buy_devices:
@@ -337,6 +331,7 @@ async def handle_subscription_devices(
     await callback.message.edit_text(
         text,
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
+        parse_mode='HTML',
     )
     await callback.answer()
 

@@ -233,6 +233,7 @@ def get_tariffs_keyboard(
     tariffs: list[Tariff],
     language: str,
     purchased_tariff_ids: set[int] | None = None,
+    show_my_subscriptions: bool = False,
 ) -> InlineKeyboardMarkup:
     """Создает компактную клавиатуру выбора тарифов (только названия)."""
     texts = get_texts(language)
@@ -252,6 +253,9 @@ def get_tariffs_keyboard(
             title = tariff.name
         buttons.append([InlineKeyboardButton(text=title, callback_data=f'tariff_select:{tariff.id}')])
 
+    # Oden: продление и докупка устройств уже оплаченной подписки — через «Мои подписки».
+    if show_my_subscriptions:
+        buttons.append([InlineKeyboardButton(text='📋 Мои подписки', callback_data='my_subscriptions')])
     buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -904,10 +908,21 @@ async def show_tariffs_list(
 
     await callback.message.edit_text(
         tariffs_text,
-        reply_markup=get_tariffs_keyboard(tariffs, db_user.language, purchased_tariff_ids),
+        reply_markup=get_tariffs_keyboard(
+            tariffs,
+            db_user.language,
+            purchased_tariff_ids,
+            show_my_subscriptions=settings.is_multi_tariff_enabled() and await _has_subscriptions(db, db_user.id),
+        ),
     )
 
     await callback.answer()
+
+
+async def _has_subscriptions(db: AsyncSession, user_id: int) -> bool:
+    from app.database.crud.subscription import get_all_subscriptions_by_user_id
+
+    return bool(await get_all_subscriptions_by_user_id(db, user_id))
 
 
 async def _tariff_back_callback(state: FSMContext) -> str:
