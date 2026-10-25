@@ -245,7 +245,9 @@ async def handle_connect_subscription(
 
         await callback.message.edit_text(
             device_text,
-            reply_markup=get_device_selection_keyboard(db_user.language, platforms=platforms, sub_id=sub_id),
+            reply_markup=get_device_selection_keyboard(
+                db_user.language, platforms=platforms, sub_id=sub_id, page_url=subscription_link
+            ),
             parse_mode='HTML',
         )
 

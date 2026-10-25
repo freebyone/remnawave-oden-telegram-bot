@@ -32,7 +32,7 @@ from app.keyboards.inline import (
     get_specific_app_keyboard,
 )
 from app.localization.texts import get_texts
-from app.services.pricing_engine import PricingEngine
+from app.services.pricing_engine import PricingEngine, extra_devices_monthly_cost
 from app.services.remnawave_service import RemnaWaveService
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
@@ -376,7 +376,11 @@ async def confirm_change_devices(
         else:
             chargeable_devices = additional_devices
 
-        devices_price_per_month = chargeable_devices * price_per_device
+        devices_price_per_month = (
+            extra_devices_monthly_cost(tariff, current_devices, new_devices_count, price_per_device)
+            if tariff
+            else chargeable_devices * price_per_device
+        )
 
         # Считаем стоимость по оставшимся дням подписки.
         # Прорейт по фактическому остатку — как трафик/серверы (calculate_prorated_price),
@@ -615,7 +619,11 @@ async def execute_change_devices(
         else:
             chargeable_devices = devices_difference
 
-        devices_price_per_month = chargeable_devices * price_per_device
+        devices_price_per_month = (
+            extra_devices_monthly_cost(tariff, current_devices, new_devices_count, price_per_device)
+            if tariff
+            else chargeable_devices * price_per_device
+        )
         days_left = max(1, math.ceil((subscription.end_date - datetime.now(UTC)).total_seconds() / 86400))
         devices_discount_percent = PricingEngine.get_addon_discount_percent(
             db_user,
@@ -1537,7 +1545,11 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
     else:
         chargeable_devices = devices_count
 
-    devices_price_per_month = chargeable_devices * price_per_device
+    devices_price_per_month = (
+        extra_devices_monthly_cost(tariff, current_devices, current_devices + devices_count, price_per_device)
+        if tariff
+        else chargeable_devices * price_per_device
+    )
 
     # TOCTOU: lock user row before reading promo/discount state
     db_user = await lock_user_for_pricing(db, db_user.id)

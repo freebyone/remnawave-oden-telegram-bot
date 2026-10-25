@@ -447,6 +447,8 @@ class Settings(BaseSettings):
     REFERRAL_FIRST_TOPUP_BONUS_KOPEKS: int = 10000
     REFERRAL_INVITER_BONUS_KOPEKS: int = 10000
     REFERRAL_COMMISSION_PERCENT: int = 25
+    # Oden: ступенчатая цена доп. устройств, JSON {"tariff_id": [коп./мес за 1-е доп., 2-е, ...]}
+    ODEN_DEVICE_PRICE_STEPS: str = ''
     REFERRAL_FIRST_PAYMENT_COMMISSION_PERCENT: int | None = None
     REFERRAL_RECURRING_COMMISSION_TIERS: str = ''  # Формат: "0:10,10:15,50:20,100:25"
     REFERRAL_MAX_COMMISSION_PAYMENTS: int = 0  # Макс. кол-во платежей реферала с комиссией (0 = без лимита)

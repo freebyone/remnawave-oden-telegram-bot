@@ -3199,12 +3199,23 @@ def get_manage_countries_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
+_ODEN_BOT_PLATFORMS = frozenset({'ios', 'android', 'windows', 'macos'})
+
+
 def get_device_selection_keyboard(
     language: str = DEFAULT_LANGUAGE,
     platforms: list[dict] | None = None,
     sub_id: int | None = None,
+    page_url: str | None = None,
 ) -> InlineKeyboardMarkup:
     texts = get_texts(language)
+    # Oden: в боте — четыре основные платформы, остальные (Linux, ТВ) — на персональной
+    # странице подписки по кнопке «Другие способы подключения».
+    if platforms:
+        main_platforms = [
+            p for p in platforms if str(p.get('device_type', p.get('key', ''))).lower() in _ODEN_BOT_PLATFORMS
+        ]
+        platforms = main_platforms or platforms
     # «Подключить VPN» — пункт главного меню, поэтому Назад возвращает туда же,
     # откуда пришли. Раньше вело в менеджмент подписки (sm:{id}), а затем в её
     # список — оба экрана к задаче «подключить устройство» отношения не имеют.
@@ -3231,7 +3242,9 @@ def get_device_selection_keyboard(
         if row:
             keyboard.append(row)
 
-    if settings.CONNECT_BUTTON_MODE == 'guide':
+    if page_url and page_url.startswith('https://'):
+        keyboard.append([InlineKeyboardButton(text='🌐 Другие способы подключения', url=page_url)])
+    elif settings.CONNECT_BUTTON_MODE == 'guide':
         # Суффикс _c — «открыто из Подключить VPN»: «Назад» со ссылки вернёт сюда,
         # а не в карточку подписки. Номер подписки остаётся последним сегментом
         # (его читает resolve_subscription_from_context).
@@ -3372,7 +3385,12 @@ def get_connection_guide_keyboard(
                         ]
                     )
 
-    if has_other_apps:
+    if subscription_url and subscription_url.startswith('https://'):
+        # Oden: остальные приложения и способы — на персональной странице подписки.
+        keyboard.append(
+            [InlineKeyboardButton(text=texts.t('OTHER_APPS_BUTTON', '📋 Другие приложения'), url=subscription_url)]
+        )
+    elif has_other_apps:
         keyboard.append(
             [
                 InlineKeyboardButton(

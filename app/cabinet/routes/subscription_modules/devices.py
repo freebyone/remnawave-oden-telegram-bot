@@ -440,8 +440,14 @@ async def purchase_devices(
             else:
                 chargeable_devices = request.devices
 
-        # Calculate base price before discount
-        base_price_per_month = device_price * chargeable_devices
+        # Calculate base price before discount (Oden: ступени цены у тарифа)
+        from app.services.pricing_engine import extra_devices_monthly_cost
+
+        base_price_per_month = (
+            extra_devices_monthly_cost(tariff, current_devices, new_device_count, device_price)
+            if tariff
+            else device_price * chargeable_devices
+        )
         base_price_prorated = int(base_price_per_month * effective_days / total_days)
         if chargeable_devices > 0:
             base_price_prorated = max(100, base_price_prorated)  # Minimum 1 ruble
@@ -865,8 +871,15 @@ async def get_device_price(
         else:
             chargeable_devices = devices
 
-    # Calculate base price before discount (total first, then floor)
-    base_total_price = int(device_price * chargeable_devices * effective_days / total_days)
+    # Calculate base price before discount (total first, then floor). Oden: ступени цены у тарифа.
+    from app.services.pricing_engine import extra_devices_monthly_cost
+
+    month_price = (
+        extra_devices_monthly_cost(tariff, current_devices, current_devices + devices, device_price)
+        if tariff
+        else device_price * chargeable_devices
+    )
+    base_total_price = int(month_price * effective_days / total_days)
     if chargeable_devices > 0:
         base_total_price = max(100, base_total_price)
 

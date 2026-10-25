@@ -173,7 +173,7 @@ async def _build_tariff_response(
                 tariff.device_price_kopeks if tariff.device_price_kopeks is not None else settings.PRICE_PER_DEVICE
             )
 
-    from app.services.pricing_engine import extra_device_terms
+    from app.services.pricing_engine import extra_device_terms, extra_devices_monthly_cost
     from app.utils.pricing_utils import calculate_months_from_days
 
     extra_unit_price, extra_max_device_limit = extra_device_terms(tariff)
@@ -189,8 +189,16 @@ async def _build_tariff_response(
             # Базовая цена тарифа
             base_tariff_price = int(price_kopeks)
 
-            # Стоимость доп. устройств за этот период
-            extra_devices_cost = extra_devices_count * extra_device_price_per_month * months
+            # Стоимость доп. устройств за этот период (Oden: с учётом ступеней цены)
+            extra_devices_cost = (
+                extra_devices_monthly_cost(
+                    tariff,
+                    tariff.device_limit or 0,
+                    (tariff.device_limit or 0) + extra_devices_count,
+                    extra_device_price_per_month,
+                )
+                * months
+            )
 
             # Apply per-category promo group discounts
             original_price = base_tariff_price + extra_devices_cost
@@ -243,12 +251,19 @@ async def _build_tariff_response(
             # Oden: сколько добавит к цене периода одно устройство сверх выбранного
             # лимита — тем же расчётом, что pricing_engine при покупке.
             if extra_unit_price > 0:
-                unit_cost = extra_unit_price * calculate_months_from_days(period_days)
-                if promo_group:
-                    devices_pct = promo_group.get_discount_percent('devices', period_days)
+                period_months = calculate_months_from_days(period_days)
+                devices_pct = promo_group.get_discount_percent('devices', period_days) if promo_group else 0
+                base_limit = tariff.device_limit or 0
+                top_limit = extra_max_device_limit or base_limit + 10
+                # Цена k-го устройства сверх тарифа за период (ступени: каждое — своя цена).
+                step_costs = []
+                for number in range(base_limit + 1, top_limit + 1):
+                    cost = extra_devices_monthly_cost(tariff, number - 1, number, extra_unit_price) * period_months
                     if devices_pct > 0:
-                        unit_cost = pricing_engine.apply_discount(unit_cost, devices_pct)
-                period_data['extra_device_price_kopeks'] = unit_cost
+                        cost = pricing_engine.apply_discount(cost, devices_pct)
+                    step_costs.append(cost)
+                period_data['extra_device_prices_kopeks'] = step_costs
+                period_data['extra_device_price_kopeks'] = step_costs[0] if step_costs else 0
 
             # Add discount info if discount is applied
             if discount_percent > 0:

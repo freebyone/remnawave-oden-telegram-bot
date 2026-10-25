@@ -602,11 +602,13 @@ class PricingEngine:
             tariff.device_price_kopeks if tariff.device_price_kopeks is not None else settings.PRICE_PER_DEVICE
         )
         tariff_device_limit = tariff.device_limit or 0
-        extra_devices = max(0, (device_limit or 0) - tariff_device_limit)
+        devices_month = extra_devices_monthly_cost(
+            tariff, tariff_device_limit, device_limit or 0, device_price_per_unit
+        )
         if is_daily and period_days <= 1:
-            devices_price = extra_devices * device_price_per_unit
+            devices_price = devices_month
         else:
-            devices_price = extra_devices * device_price_per_unit * months
+            devices_price = devices_month * months
 
         # --- Custom traffic (tariff add-on, uses addon discount path) ---
         traffic_price = 0
@@ -975,6 +977,37 @@ def extra_device_terms(tariff: Tariff) -> tuple[int, int | None]:
         return int(tariff.device_price_kopeks), tariff.max_device_limit
     max_limit = settings.MAX_DEVICES_LIMIT if settings.MAX_DEVICES_LIMIT > 0 else None
     return int(settings.PRICE_PER_DEVICE or 0), max_limit
+
+
+def _device_price_steps(tariff: Tariff | None) -> list[int]:
+    """Oden: ступенчатая цена доп. устройств тарифа (ODEN_DEVICE_PRICE_STEPS, JSON
+    {"tariff_id": [цена 1-го доп., 2-го, ...]} в копейках за месяц)."""
+    raw = (getattr(settings, 'ODEN_DEVICE_PRICE_STEPS', '') or '').strip()
+    if not raw or tariff is None:
+        return []
+    try:
+        import json
+
+        steps = json.loads(raw).get(str(tariff.id)) or []
+        return [int(step) for step in steps]
+    except (ValueError, TypeError, AttributeError):
+        logger.warning('ODEN_DEVICE_PRICE_STEPS: неверный формат', raw=raw)
+        return []
+
+
+def extra_devices_monthly_cost(tariff: Tariff | None, from_limit: int, to_limit: int, unit_price: int) -> int:
+    """Месячная цена устройств с from_limit+1 по to_limit сверх входящих в тариф.
+
+    Есть ступени у тарифа — k-е доп. устройство стоит steps[k-1] (последняя ступень
+    дальше повторяется), иначе каждое — unit_price.
+    """
+    included = (tariff.device_limit or 0) if tariff is not None else 0
+    steps = _device_price_steps(tariff)
+    total = 0
+    for number in range(max(from_limit, included) + 1, to_limit + 1):
+        index = number - included - 1
+        total += (steps[min(index, len(steps) - 1)] if steps else unit_price) if index >= 0 else 0
+    return total
 
 
 def validate_chosen_device_limit(tariff: Tariff, device_limit: int) -> str | None:
