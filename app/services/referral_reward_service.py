@@ -962,6 +962,8 @@ REASON_COMMISSION = 'referral_commission_topup'
 REASON_REGISTRATION_REWARD = 'referral_registration_reward'
 REASON_DAYS_REFERRER = 'referral_days_reward'
 REASON_DAYS_REFEREE = 'referral_days_bonus'
+# Разовый бонус за число оплативших друзей. ``level`` в строке — порог бонуса.
+REASON_MILESTONE = 'referral_milestone_days'
 
 # Строки, где начисление ушло ПРИГЛАШЁННОМУ, а не пригласившему.
 #
@@ -976,6 +978,105 @@ REASON_DAYS_REFEREE = 'referral_days_bonus'
 # отдельно. При зеркалировании чинить нужно ровно те запросы, что считают
 # ``DISTINCT referral_id`` как «мои рефералы» — их два, и оба ниже помечены.
 REFEREE_DIRECTED_REASONS = frozenset({REASON_DAYS_REFEREE})
+
+
+@dataclass(frozen=True)
+class MilestoneGrant:
+    threshold: int
+    days: int
+
+
+async def grant_referral_milestones(db: AsyncSession, referrer_id: int, referee_id: int) -> list[MilestoneGrant]:
+    """Выдать разовые бонусы за число оплативших друзей (``REFERRAL_MILESTONES``).
+
+    Зовётся после первого пополнения друга. Выдаются ВСЕ достигнутые и ещё не
+    выданные пороги, а не только ровно совпавший: если между проверками друзей
+    стало больше на два (параллельные оплаты), порог не должен проскочить.
+    Повтор защищён строкой ledger'а с порогом в ``level``.
+    """
+    from app.database.crud.referral import create_referral_earning
+
+    milestones = settings.get_referral_milestones()
+    if not milestones or not settings.is_referral_levels_scheme():
+        return []
+
+    reached = await count_referrals(db, referrer_id, active_only=True)
+    due = [(threshold, days) for threshold, days in milestones if reached >= threshold]
+    if not due:
+        return []
+
+    granted_rows = await db.execute(
+        select(ReferralEarning.level).where(
+            ReferralEarning.user_id == referrer_id,
+            ReferralEarning.reason == REASON_MILESTONE,
+        )
+    )
+    already = {int(level) for level in granted_rows.scalars().all() if level is not None}
+
+    referrer = await get_user_by_id(db, referrer_id)
+    if referrer is None:
+        return []
+
+    grants: list[MilestoneGrant] = []
+    for threshold, days in due:
+        if threshold in already:
+            continue
+        outcome = await grant_reward_days(db, referrer, days, None)
+        if outcome.days <= 0:
+            logger.warning(
+                'Бонус за оплативших друзей не выдан: подходящей подписки нет',
+                referrer_id=referrer_id,
+                threshold=threshold,
+                failure=outcome.failure,
+            )
+            continue
+        await create_referral_earning(
+            db=db,
+            user_id=referrer_id,
+            referral_id=referee_id,
+            amount_kopeks=0,
+            reason=REASON_MILESTONE,
+            reward_type=ReferralRewardType.DAYS.value,
+            level=threshold,
+            days_granted=outcome.days,
+        )
+        grants.append(MilestoneGrant(threshold=threshold, days=outcome.days))
+        # Объект мог протухнуть после синхронизации с панелью — перечитываем.
+        referrer = await get_user_by_id(db, referrer_id)
+        if referrer is None:
+            break
+
+    return grants
+
+
+@dataclass(frozen=True)
+class FriendsProgress:
+    """Прогресс по оплатившим друзьям для экрана рефералки."""
+
+    paid: int
+    invited: int
+    next_threshold: int | None
+    next_days: int
+    milestones: list[tuple[int, int]]
+
+
+async def resolve_friends_progress(db: AsyncSession, user_id: int) -> FriendsProgress:
+    milestones = settings.get_referral_milestones()
+    paid = await count_referrals(db, user_id, active_only=True)
+    invited = await count_referrals(db, user_id, active_only=False)
+    upcoming = [(threshold, days) for threshold, days in milestones if threshold > paid]
+    next_threshold, next_days = upcoming[0] if upcoming else (None, 0)
+    return FriendsProgress(
+        paid=paid, invited=invited, next_threshold=next_threshold, next_days=next_days, milestones=milestones
+    )
+
+
+def render_progress_bar(value: int, total: int, width: int = 10) -> str:
+    """Полоса прогресса из блоков: ▰▰▰▱▱▱▱▱▱▱."""
+    if total <= 0:
+        return '▰' * width
+    filled = max(0, min(width, round(width * value / total)))
+    return '▰' * filled + '▱' * (width - filled)
 
 
 def is_referee_directed(reason: str) -> bool:

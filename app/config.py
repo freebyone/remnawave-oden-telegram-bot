@@ -347,6 +347,15 @@ class Settings(BaseSettings):
     ALLOW_DEVICES_BELOW_TARIFF_LIMIT: bool = False
 
     TRIAL_WARNING_HOURS: int = 2
+    # Первое напоминание об окончании триала — за столько часов (0 = не слать).
+    # Второе — за TRIAL_WARNING_HOURS, и только оно несёт скидку ниже.
+    TRIAL_EARLY_WARNING_HOURS: int = 24
+    # Скидка на первую покупку в последнем напоминании (0 = без скидки). Ложится в
+    # обычный промо-оффер пользователя, поэтому действует на любой тариф и срок и
+    # списывается первой же покупкой. 31% превращают месяц за 290 ₽ в 200 ₽.
+    TRIAL_ENDING_OFFER_PERCENT: int = 31
+    # Сколько часов скидка живёт с момента напоминания: 2 часа триала + сутки после.
+    TRIAL_ENDING_OFFER_VALID_HOURS: int = 26
     ENABLE_NOTIFICATIONS: bool = True
     NOTIFICATION_RETRY_ATTEMPTS: int = 3
     # Уведомления истёкшим и отписавшимся от канала — переключатели меню «Уведомления пользователям»
@@ -477,6 +486,11 @@ class Settings(BaseSettings):
     # По умолчанию 'chain' — прежнее поведение схемы, чтобы обновление бота не
     # перекроило выплаты на установках, где уровни уже включены.
     REFERRAL_LEVELS_MODE: str = 'chain'
+    # Разовые бонусы днями за число ОПЛАТИВШИХ друзей, сверх награды за каждого:
+    # «порог:дни» через запятую. Работает только в схеме 'levels'. Пусто — выключено.
+    REFERRAL_MILESTONES: str = ''
+    # Сколько дней добавить к триалу пользователю, пришедшему по реферальной ссылке.
+    REFERRAL_TRIAL_BONUS_DAYS: int = 0
     # Разрешить пользователю самому выбирать, в какую подписку лягут дни награды.
     # Пока выключено, подписку подбирает бот — платную с самым поздним сроком.
     REFERRAL_ALLOW_DAYS_TARGET_CHOICE: bool = False
@@ -3998,6 +4012,22 @@ class Settings(BaseSettings):
     def is_referral_levels_scheme(self) -> bool:
         """Включена ли многоуровневая схема наград."""
         return str(self.REFERRAL_REWARD_SCHEME or '').strip().lower() == 'levels'
+
+    def get_referral_milestones(self) -> list[tuple[int, int]]:
+        """Разовые бонусы за оплативших друзей: [(порог, дни), ...] по возрастанию порога.
+
+        Кривые пары пропускаются, а не роняют бот: ключ правится из админки руками.
+        """
+        milestones: dict[int, int] = {}
+        for chunk in str(self.REFERRAL_MILESTONES or '').split(','):
+            threshold, _, days = chunk.strip().partition(':')
+            try:
+                threshold_value, days_value = int(threshold), int(days)
+            except ValueError:
+                continue
+            if threshold_value > 0 and days_value > 0:
+                milestones[threshold_value] = days_value
+        return sorted(milestones.items())
 
     def get_referral_levels_mode(self) -> str:
         """Что означает номер уровня: глубина цепочки ('chain') или ранг ('tiers').

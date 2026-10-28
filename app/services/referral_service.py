@@ -924,6 +924,34 @@ async def _notify_level_outcome(bot, db: AsyncSession, referee, outcome, *, even
     )
 
 
+async def _grant_milestones_after_first_topup(db: AsyncSession, referrer_id: int, referee_id: int, bot: Bot = None):
+    """Разовые бонусы за 3/10/20 оплативших друзей. Сбой не трогает основную награду."""
+    from app.services.referral_reward_service import grant_referral_milestones
+
+    try:
+        grants = await grant_referral_milestones(db, referrer_id, referee_id)
+    except Exception as error:
+        logger.error('Ошибка выдачи бонуса за оплативших друзей', referrer_id=referrer_id, error=str(error))
+        return
+
+    if not grants or not bot:
+        return
+
+    referrer = await get_user_by_id(db, referrer_id)
+    if not referrer or not referrer.telegram_id:
+        return
+    for grant in grants:
+        try:
+            await bot.send_message(
+                referrer.telegram_id,
+                f'🏆 <b>{grant.threshold} друзей оплатили подписку!</b>\n\n'
+                f'Бонус: <b>+{grant.days} дн.</b> к вашей подписке. Спасибо, что зовёте друзей!',
+                parse_mode='HTML',
+            )
+        except Exception as error:
+            logger.error('Не удалось уведомить о бонусе за друзей', referrer_id=referrer_id, error=str(error))
+
+
 async def _process_topup_levels(db: AsyncSession, user, topup_amount_kopeks: int, bot: Bot = None) -> bool:
     """Пополнение реферала в многоуровневой схеме.
 
@@ -980,6 +1008,9 @@ async def _process_topup_levels(db: AsyncSession, user, topup_amount_kopeks: int
         except Exception as error:
             # Уведомление не должно откатывать уже выданное.
             logger.error('Не удалось уведомить о реферальной награде', error=str(error))
+
+    if is_first and user.referred_by_id:
+        await _grant_milestones_after_first_topup(db, user.referred_by_id, user.id, bot)
 
     # Ключ называется reward_event, а не event: 'event' зарезервирован structlog
     # под само сообщение, и вызов с ним падает TypeError — уже ПОСЛЕ того, как

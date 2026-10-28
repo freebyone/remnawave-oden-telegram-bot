@@ -189,6 +189,12 @@ async def create_trial_subscription(
         tariff_id: ID тарифа (для режима тарифов)
     """
     duration_days = duration_days or settings.TRIAL_DURATION_DAYS
+    if settings.REFERRAL_TRIAL_BONUS_DAYS > 0:
+        # Бонус приглашённому кладётся прямо в триал: на этом шаге подписки ещё нет,
+        # и реферальная награда днями (она ищет подписку) лечь некуда.
+        referred_by_id = (await db.execute(select(User.referred_by_id).where(User.id == user_id))).scalar_one_or_none()
+        if referred_by_id:
+            duration_days += settings.REFERRAL_TRIAL_BONUS_DAYS
     # 0 ГБ — это осознанный БЕЗЛИМИТ (валидное значение), поэтому отличаем
     # «не передано» (None → берём конфиг) от «0» (оставляем безлимит). `or` тут
     # затирал бы намеренный безлимит триал-тарифа значением TRIAL_TRAFFIC_LIMIT_GB.

@@ -2521,6 +2521,19 @@ def get_autopay_notification_keyboard(subscription_id: int, language: str = DEFA
 def get_referral_keyboard(language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMarkup:
     texts = get_texts(language)
 
+    if settings.is_referral_levels_scheme() and settings.get_referral_milestones():
+        # Программа «награды днями»: денег нет, поэтому ни вывода, ни аналитики дохода.
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text='✅ Пригласить друга', callback_data='referral_create_invite')],
+                [
+                    InlineKeyboardButton(text='📱 QR-код', callback_data='referral_show_qr'),
+                    InlineKeyboardButton(text='👥 Мои приглашения', callback_data='referral_list'),
+                ],
+                [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
+            ]
+        )
+
     keyboard = [
         [
             InlineKeyboardButton(

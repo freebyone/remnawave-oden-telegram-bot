@@ -53,6 +53,70 @@ async def _reward_tariff_names(db) -> dict[int, str]:
     return {row.id: row.name for row in result.all()}
 
 
+def _plural_friends(count: int) -> str:
+    if count % 10 == 1 and count % 100 != 11:
+        return 'друг'
+    if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
+        return 'друга'
+    return 'друзей'
+
+
+async def _build_days_program_text(db: AsyncSession, db_user: User, summary: dict, link: str) -> str:
+    """Экран программы «награды днями»: прогресс-бар до следующего бонуса и лестница.
+
+    Награда за каждого друга берётся из уровня 1 — того же правила, по которому она
+    начисляется, чтобы экран не обещал другое число дней.
+    """
+    from app.services.referral_reward_service import (
+        ReferralRewardLevelService,
+        render_progress_bar,
+        resolve_friends_progress,
+    )
+
+    progress = await resolve_friends_progress(db, db_user.id)
+    level = await ReferralRewardLevelService.get_level(db, 1)
+    per_friend_days = level.referrer_days if level and level.is_active and level.days_enabled else 0
+
+    lines = ['🎁 <b>Приглашай друзей — получай VPN бесплатно</b>', '']
+
+    if progress.next_threshold is not None:
+        lines.append(
+            f'Твой прогресс: <b>{progress.paid} из {progress.next_threshold}</b> '
+            f'{_plural_friends(progress.next_threshold)}'
+        )
+        lines.append(render_progress_bar(progress.paid, progress.next_threshold))
+        remaining = progress.next_threshold - progress.paid
+        lines.append(f'До бонуса <b>+{progress.next_days} дн.</b>: ещё {remaining} {_plural_friends(remaining)}')
+    else:
+        lines.append(f'Твой прогресс: <b>{progress.paid}</b> оплативших друзей')
+        lines.append(render_progress_bar(1, 1))
+        lines.append('🏆 Все бонусы получены!')
+
+    lines.append('')
+    if per_friend_days:
+        lines.append(f'💎 За каждого друга, который оплатит подписку, — <b>+{per_friend_days} дней</b>')
+    lines.append('')
+    lines.append('<b>Бонусы сверху:</b>')
+    for threshold, days in progress.milestones:
+        mark = '✅' if progress.paid >= threshold else '▫️'
+        lines.append(f'{mark} {threshold} {_plural_friends(threshold)} — ещё +{days} дн.')
+
+    if settings.REFERRAL_TRIAL_BONUS_DAYS > 0:
+        lines.append('')
+        lines.append(f'🤝 Другу — <b>+{settings.REFERRAL_TRIAL_BONUS_DAYS} дня</b> к пробному периоду.')
+
+    lines.append('')
+    lines.append(
+        f'👥 Приглашено: <b>{progress.invited}</b> · оплатили: <b>{progress.paid}</b> · '
+        f'получено: <b>{int(summary.get("total_earned_days", 0) or 0)} дн.</b>'
+    )
+    lines.append('')
+    lines.append('Засчитываются только друзья, которые оплатили подписку.')
+    lines.append('')
+    lines.append(f'🔗 <b>Твоя ссылка:</b>\n{html_escape(link)}')
+    return '\n'.join(lines)
+
+
 async def show_referral_info(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     # Проверяем, включена ли реферальная программа
     if not settings.is_referral_program_enabled():
@@ -71,6 +135,15 @@ async def show_referral_info(callback: types.CallbackQuery, db_user: User, db: A
     bot_username = (await callback.bot.get_me()).username
     bot_referral_link = settings.get_bot_referral_link(db_user.referral_code, bot_username)
     cabinet_referral_link = settings.get_cabinet_referral_link(db_user.referral_code)
+
+    if settings.is_referral_levels_scheme() and settings.get_referral_milestones():
+        await edit_or_answer_photo(
+            callback,
+            await _build_days_program_text(db, db_user, summary, bot_referral_link),
+            get_referral_keyboard(db_user.language),
+        )
+        await callback.answer()
+        return
 
     referral_text = (
         texts.t('REFERRAL_PROGRAM_TITLE', '👥 <b>Реферальная программа</b>')
@@ -660,6 +733,10 @@ async def create_invite_message(callback: types.CallbackQuery, db_user: User, db
                 'REFERRAL_INVITE_BONUS_LEVELS',
                 '💎 Твой бонус за регистрацию по ссылке: {bonus}',
             ).format(bonus=referee_bonus)
+        elif settings.REFERRAL_TRIAL_BONUS_DAYS > 0:
+            bonus_block = (
+                f'\n\n💎 По моей ссылке пробный период длиннее на {settings.REFERRAL_TRIAL_BONUS_DAYS} дня'
+            )
     elif settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS > 0:
         bonus_block = '\n\n' + texts.t(
             'REFERRAL_INVITE_BONUS',
@@ -693,8 +770,13 @@ async def create_invite_message(callback: types.CallbackQuery, db_user: User, db
         cabinet_block=cabinet_block,
     )
 
+    from urllib.parse import quote
+
+    share_text = bonus_block.strip() or 'Быстрый VPN с обходом белых списков'
+    share_url = f'https://t.me/share/url?url={quote(bot_referral_link, safe="")}&text={quote(share_text, safe="")}'
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
+            [types.InlineKeyboardButton(text='📤 Отправить другу', url=share_url)],
             [types.InlineKeyboardButton(text=texts.BACK, callback_data='menu_referrals')],
         ]
     )

@@ -1004,8 +1004,23 @@ class MonitoringService:
         if not NotificationSettingsService.are_notifications_globally_enabled():
             return
 
+        # Два окна: раннее (за сутки) и последнее (за TRIAL_WARNING_HOURS, со скидкой).
+        # Раннее шлётся только тем, у кого до конца больше последнего окна, — иначе
+        # человек получил бы два сообщения подряд в одну проверку.
+        last_hours = max(1, settings.get_trial_warning_hours())
+        early_hours = settings.TRIAL_EARLY_WARNING_HOURS
+        if early_hours > last_hours:
+            await self._check_trial_expiring_window(db, early_hours, 'trial_24h', min_hours=last_hours)
+        await self._check_trial_expiring_window(db, last_hours, 'trial_2h')
+
+    async def _check_trial_expiring_window(
+        self, db: AsyncSession, hours: int, notification_key: str, *, min_hours: int = 0
+    ):
+        is_last = notification_key == 'trial_2h'
         try:
-            threshold_time = datetime.now(UTC) + timedelta(hours=2)
+            now = datetime.now(UTC)
+            threshold_time = now + timedelta(hours=hours)
+            lower_bound = now + timedelta(hours=min_hours)
 
             result = await db.execute(
                 select(Subscription)
@@ -1022,12 +1037,13 @@ class MonitoringService:
                         Subscription.status == SubscriptionStatus.ACTIVE.value,
                         Subscription.is_trial == True,
                         Subscription.end_date <= threshold_time,
-                        Subscription.end_date > datetime.now(UTC),
+                        Subscription.end_date > lower_bound,
                         User.status == UserStatus.ACTIVE.value,
                     )
                 )
             )
             trial_expiring = result.scalars().all()
+            sent_count = 0
 
             for subscription in trial_expiring:
                 user = subscription.user
@@ -1039,24 +1055,36 @@ class MonitoringService:
                 if not is_subscription_expiry_enabled(user):
                     continue
 
-                if await notification_sent(db, user.id, subscription.id, 'trial_2h'):
+                if await notification_sent(db, user.id, subscription.id, notification_key):
                     continue
 
                 if self.bot:
-                    success = await self._send_trial_ending_notification(user, subscription)
+                    offer_percent, offer_month_price = 0, 0
+                    if is_last:
+                        offer_percent, offer_month_price = await self._grant_trial_ending_offer(db, user)
+                    success = await self._send_trial_ending_notification(
+                        user,
+                        subscription,
+                        hours_left=hours,
+                        offer_percent=offer_percent,
+                        offer_month_price=offer_month_price,
+                    )
                     if success:
-                        await record_notification(db, user.id, subscription.id, 'trial_2h')
+                        sent_count += 1
+                        await record_notification(db, user.id, subscription.id, notification_key)
                         logger.info(
-                            '🎁 Пользователю отправлено уведомление об окончании тестовой подписки через 2 часа',
+                            '🎁 Пользователю отправлено уведомление об окончании тестовой подписки',
                             telegram_id=user.telegram_id,
+                            notification_key=notification_key,
+                            offer_percent=offer_percent,
                         )
 
-            if trial_expiring:
+            if sent_count:
                 await self._log_monitoring_event(
                     db,
                     'trial_expiring_notifications_sent',
-                    f'Отправлено {len(trial_expiring)} уведомлений об окончании тестовых подписок',
-                    {'count': len(trial_expiring)},
+                    f'Отправлено {sent_count} уведомлений об окончании тестовых подписок ({notification_key})',
+                    {'count': sent_count, 'key': notification_key},
                 )
 
         except Exception as e:
@@ -2132,7 +2160,56 @@ class MonitoringService:
             )
             return False
 
-    async def _send_trial_ending_notification(self, user: User, subscription: Subscription) -> bool:
+    async def _grant_trial_ending_offer(self, db: AsyncSession, user: User) -> tuple[int, int]:
+        """Выдать скидку из последнего напоминания о триале.
+
+        Возвращает ``(процент, цена месяца со скидкой в копейках)``; ``(0, 0)`` —
+        скидки нет. Скидка ложится в обычный промо-оффер пользователя: её уже
+        понимают все пути покупки и списывает первая покупка. Действующий оффер
+        не перебивается, если он щедрее.
+        """
+        percent = max(0, min(100, settings.TRIAL_ENDING_OFFER_PERCENT))
+        if percent <= 0:
+            return 0, 0
+
+        try:
+            from app.database.models import Tariff
+            from app.services.pricing_engine import PricingEngine
+            from app.utils.promo_offer import get_user_active_promo_discount_percent
+
+            current = get_user_active_promo_discount_percent(user)
+            if current < percent:
+                user.promo_offer_discount_percent = percent
+                user.promo_offer_discount_source = 'trial_ending'
+                user.promo_offer_discount_expires_at = datetime.now(UTC) + timedelta(
+                    hours=max(1, settings.TRIAL_ENDING_OFFER_VALID_HOURS)
+                )
+                await db.commit()
+            else:
+                percent = current
+
+            # Цена месяца для текста — самый дешёвый месячный тариф из активных.
+            rows = await db.execute(select(Tariff.period_prices).where(Tariff.is_active.is_(True)))
+            month_prices = [
+                int(prices.get('30') or prices.get(30) or 0) for prices in rows.scalars().all() if prices
+            ]
+            month_prices = [price for price in month_prices if price > 0]
+            month_price = PricingEngine.apply_discount(min(month_prices), percent) if month_prices else 0
+            return percent, month_price
+        except Exception as error:
+            logger.error('Не удалось выдать скидку в конце триала', user_id=user.id, error=error)
+            await db.rollback()
+            return 0, 0
+
+    async def _send_trial_ending_notification(
+        self,
+        user: User,
+        subscription: Subscription,
+        *,
+        hours_left: int = 2,
+        offer_percent: int = 0,
+        offer_month_price: int = 0,
+    ) -> bool:
         try:
             if not user.telegram_id:
                 return await notification_delivery_service.send_notification(
@@ -2145,23 +2222,35 @@ class MonitoringService:
             tariff_label = ''
             if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
                 tariff_label = f' «{subscription.tariff.name}»'
-            message = f"""
-🎁 <b>Тестовая подписка{tariff_label} скоро закончится!</b>
+            left = 'завтра' if hours_left >= 24 else f'через {hours_left} ч'
+            if offer_percent > 0:
+                price_line = (
+                    f'первый месяц за <b>{settings.format_price(offer_month_price)}</b>'
+                    if offer_month_price
+                    else f'скидка <b>{offer_percent}%</b>'
+                )
+                message = f"""
+🎁 <b>Тестовый период{tariff_label} заканчивается {left}</b>
 
-Ваша тестовая подписка истекает через 2 часа.
+Только для вас — {price_line} на первую подписку (−{offer_percent}% на любой тариф и срок).
 
-💎 <b>Не хотите остаться без VPN?</b>
-Переходите на полную подписку!
-
-⚡️ Успейте оформить до окончания тестового периода!
+⏳ Скидка действует сутки после окончания теста и сгорает после первой покупки.
 """
+                buy_text = '🔥 Купить со скидкой'
+            else:
+                message = f"""
+🎁 <b>Тестовый период{tariff_label} заканчивается {left}</b>
+
+💎 Оформите подписку заранее, чтобы VPN не отключился.
+Обход белых списков, все локации и до 3 устройств — в любом тарифе.
+"""
+                buy_text = '💎 Купить подписку'
 
             from aiogram.types import InlineKeyboardMarkup
 
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [build_miniapp_or_callback_button(text='💎 Купить подписку', callback_data='menu_buy')],
-                    [build_miniapp_or_callback_button(text='💰 Пополнить баланс', callback_data='balance_topup')],
+                    [build_miniapp_or_callback_button(text=buy_text, callback_data='menu_buy')],
                 ]
             )
 
